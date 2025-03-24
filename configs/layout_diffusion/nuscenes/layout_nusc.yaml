@@ -78,7 +78,8 @@ data:
     train:
       target: lidm.data.nuscenes_layout_dataset.nuScenesLayoutTrain
       params:
-        root: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes
+        # root: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes
+        root: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes
         shuffle_objs: true
         use_scene_rels: true
         with_changes: false
@@ -92,7 +93,8 @@ data:
     validation:
       target: lidm.data.nuscenes_layout_dataset.nuScenesLayoutVal
       params:
-        root: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes
+        # root: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes
+        root: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes
         use_scene_rels: true
         with_changes: false
         eval: true

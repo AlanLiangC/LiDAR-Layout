@@ -241,3 +241,11 @@ def parallel_data_prefetch(
         return out
     else:
         return gather_res
+
+def preprocess_angle2sincos(angle):
+    if isinstance(angle,np.ndarray):
+        return np.concatenate((np.sin(angle),np.cos(angle)),axis=-1)
+    elif isinstance(angle,torch.Tensor):
+        return torch.concat((torch.sin(angle), torch.cos(angle)), dim=-1)
+    else:
+        raise NotImplementedError

@@ -14,11 +14,18 @@
             "cwd": "${workspaceFolder}/scripts",
             "args": [
                 // train layout diffusion
-                "-b", "../configs/layout_diffusion/nuscenes/layout_nusc.yaml",
-                "-t",
-                "--gpus", "1",
-                "--batch_size", "2",
-                "--num_workers", "1"
+                // "-b", "../configs/layout_diffusion/nuscenes/layout_nusc.yaml",
+                // "-t",
+                // "--gpus", "1",
+                // "--batch_size", "2",
+                // "--num_workers", "1"
+
+                // sample
+                "-d", "nuscenes",
+                "-r", "../models/layout/nuscenes/last.ckpt",
+                "-n", "10",
+                "-b", "2",
+                "--eval"
             ]
 
         }

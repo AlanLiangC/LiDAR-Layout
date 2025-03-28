@@ -23,7 +23,7 @@ from ...modules.ema import LitEma
 from ...modules.distributions.distributions import normal_kl, DiagonalGaussianDistribution
 from ...models.autoencoder import VQModelInterface, IdentityFirstStage, AutoencoderKL
 from ...modules.basic import make_beta_schedule, extract_into_tensor, noise_like
-from ...models.diffusion.ddim import DDIMSampler
+from ...models.diffusion.ddim import DDIMSampler, LayoutDDIMSampler
 
 __conditioning_keys__ = {'concat': 'c_concat',
                          'crossattn': 'c_crossattn',
@@ -1904,7 +1904,6 @@ class LayoutDiffusion(DDPM):
                     encoded_dec_text_feat, encoded_dec_rel_feat, dec_objs_to_scene,\
                     dec_triples_to_scene, missing_nodes, manipulated_nodes, *args, **kwargs):
         
-        # t = torch.randint(0, self.num_timesteps, (dec_objs.shape[0],), device=self.device).long()
         if self.cond_stage_trainable:
             latent_obj_vecs, obj_embed_ = self.get_learned_conditioning(enc_objs, enc_triples, encoded_enc_text_feat, encoded_enc_rel_feat,\
                                             dec_objs, dec_triples, dec_boxes, dec_angles,\
@@ -2223,12 +2222,12 @@ class LayoutDiffusion(DDPM):
                                   mask=mask, x0=x0)
 
     @torch.no_grad()
-    def sample_log(self, cond, batch_size, ddim, ddim_steps, **kwargs):
+    def sample_log(self, diff_dict, batch_size, ddim, ddim_steps, **kwargs):
         if ddim:
-            ddim_sampler = DDIMSampler(self)
-            shape = (self.channels, *self.image_size)
+            ddim_sampler = LayoutDDIMSampler(self)
+            shape = (batch_size, 8)
             samples, intermediates = ddim_sampler.sample(ddim_steps, batch_size,
-                                                         shape, cond, verbose=self.verbose, **kwargs)
+                                                         shape, diff_dict, verbose=self.verbose, **kwargs)
 
         else:
             samples, intermediates = self.sample(cond=cond, batch_size=batch_size,
@@ -2237,122 +2236,32 @@ class LayoutDiffusion(DDPM):
         return samples, intermediates
 
     @torch.no_grad()
-    def log_images(self, batch, N=8, n_row=4, sample=True, ddim_steps=200, ddim_eta=1., return_keys=None,
-                   quantize_denoised=False, inpaint=False, plot_denoise_rows=False, plot_progressive_rows=False,
-                   plot_diffusion_rows=False, dset=None, **kwargs):
+    def log_images(self, batch, sample=True, ddim_steps=200, ddim_eta=1., **kwargs):
 
         use_ddim = ddim_steps is not None
 
-        log = dict()
-        z, c, x, xrec, xc = self.get_input(batch, self.first_stage_key,
-                                           return_first_stage_outputs=True,
-                                           force_c_encode=True,
-                                           return_original_cond=True,
-                                           bs=N)
+        enc_objs, enc_triples, encoded_enc_text_feat, encoded_enc_rel_feat,\
+        dec_objs, dec_triples, dec_boxes, dec_angles,\
+        encoded_dec_text_feat, encoded_dec_rel_feat, dec_objs_to_scene,\
+        dec_triples_to_scene, missing_nodes, manipulated_nodes = self.get_input(batch, self.first_stage_key)
 
-        N = min(x.shape[0], N)
-        n_row = min(x.shape[0], n_row)
-        log["inputs"] = x
-        log["reconstruction"] = xrec
-        if self.model.conditioning_key is not None:
-            if hasattr(self.cond_stage_model, "decode"):
-                xc = self.cond_stage_model.decode(c)
-                log["conditioning"] = xc
-            elif self.cond_stage_key in ["caption"]:
-                xc = log_txt_as_img((x.shape[2], x.shape[3]), batch["caption"])
-                log["conditioning"] = xc
-            elif self.cond_stage_key in ['class_label']:
-                xc = log_txt_as_img((x.shape[2], x.shape[3]), batch["human_label"])
-                log['conditioning'] = xc
-            elif self.cond_stage_key in ['camera']:
-                if isinstance(batch["camera"], list):
-                    xc = torch.cat(batch["camera"], -1)
-                else:
-                    xc = batch["camera"].permute(0, 2, 3, 1, 4)
-                    xc = xc.reshape(*xc.shape[:3], -1) * 2. - 1.
-                log['conditioning'] = xc
-            elif isimage(xc):
-                log["conditioning"] = xc
-            if ismap(xc):
-                if dset is None:
-                    key = 'train' if self.training else 'validation'
-                    dset = self.trainer.datamodule.datasets[key].data
-                label2rgb = torch.from_numpy(dset.label2rgb).to(self.device) / 127.5 - 1.
-                # log["original_conditioning"] = self.to_rgb(xc)
-                log["original_conditioning"] = label2rgb[xc.argmax(1)].permute(0, 3, 1, 2)
+        if self.cond_stage_trainable:
+            latent_obj_vecs, obj_embed_ = self.get_learned_conditioning(enc_objs, enc_triples, encoded_enc_text_feat, encoded_enc_rel_feat,\
+                                            dec_objs, dec_triples, dec_boxes, dec_angles,\
+                                            encoded_dec_text_feat, encoded_dec_rel_feat, dec_objs_to_scene,\
+                                            dec_triples_to_scene, missing_nodes, manipulated_nodes)
 
-        if plot_diffusion_rows:
-            # get diffusion row
-            diffusion_row = list()
-            z_start = z[:n_row]
-            for t in range(self.num_timesteps):
-                if t % self.log_every_t == 0 or t == self.num_timesteps - 1:
-                    t = repeat(torch.tensor([t]), '1 -> b', b=n_row)
-                    t = t.to(self.device).long()
-                    noise = torch.randn_like(z_start)
-                    z_noisy = self.q_sample(x_start=z_start, t=t, noise=noise)
-                    diffusion_row.append(self.decode_first_stage(z_noisy))
-
-            diffusion_row = torch.stack(diffusion_row)  # n_log_step, n_row, C, H, W
-            diffusion_grid = rearrange(diffusion_row, 'n b c h w -> b n c h w')
-            diffusion_grid = rearrange(diffusion_grid, 'b n c h w -> (b n) c h w')
-            diffusion_grid = make_grid(diffusion_grid, nrow=diffusion_row.shape[0])
-            log["diffusion_row"] = diffusion_grid
+        diff_dict = self.prepare_df_input(dec_triples, obj_embed_, obj_boxes=dec_boxes, obj_angles=dec_angles, relation_cond=latent_obj_vecs, scene_ids=dec_objs_to_scene)
 
         if sample:
+            batch_size = diff_dict['box'].shape[0]
             # get denoise row
             with self.ema_scope("Plotting"):
-                samples, z_denoise_row = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,
+                samples, z_denoise_row = self.sample_log(diff_dict, batch_size=batch_size, ddim=use_ddim,
                                                          ddim_steps=ddim_steps, eta=ddim_eta)
-            x_samples = self.decode_first_stage(samples)
-            log["samples"] = x_samples
-            if plot_denoise_rows:
-                denoise_grid = self._get_denoise_row_from_list(z_denoise_row)
-                log["denoise_row"] = denoise_grid
+                
+            return samples
 
-            if quantize_denoised and not isinstance(self.first_stage_model, AutoencoderKL) and not isinstance(
-                    self.first_stage_model, IdentityFirstStage):
-                # also display when quantizing x0 while sampling
-                with self.ema_scope("Plotting Quantized Denoised"):
-                    samples, z_denoise_row = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,
-                                                             ddim_steps=ddim_steps, eta=ddim_eta,
-                                                             quantize_denoised=True)
-                x_samples = self.decode_first_stage(samples.to(self.device))
-                log["samples_x0_quantized"] = x_samples
-
-            if inpaint:
-                # make a simple center square
-                b, h, w = z.shape[0], z.shape[2], z.shape[3]
-                mask = torch.ones(N, h, w).to(self.device)
-                # zeros will be filled in
-                mask[:, h // 4:3 * h // 4, w // 4:3 * w // 4] = 0.
-                mask = mask[:, None, ...]
-                with self.ema_scope("Plotting Inpaint"):
-                    samples, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim, eta=ddim_eta,
-                                                 ddim_steps=ddim_steps, x0=z[:N], mask=mask)
-                x_samples = self.decode_first_stage(samples.to(self.device))
-                log["samples_inpainting"] = x_samples
-                log["mask"] = mask
-
-                # outpaint
-                with self.ema_scope("Plotting Outpaint"):
-                    samples, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim, eta=ddim_eta,
-                                                 ddim_steps=ddim_steps, x0=z[:N], mask=mask)
-                x_samples = self.decode_first_stage(samples.to(self.device))
-                log["samples_outpainting"] = x_samples
-
-        if plot_progressive_rows:
-            with self.ema_scope("Plotting Progressives"):
-                img, progressives = self.progressive_denoising(c, shape=(self.channels, *self.image_size), batch_size=N)
-            prog_row = self._get_denoise_row_from_list(progressives, desc="Progressive Generation")
-            log["progressive_row"] = prog_row
-
-        if return_keys:
-            if np.intersect1d(list(log.keys()), return_keys).shape[0] == 0:
-                return log
-            else:
-                return {key: log[key] for key in return_keys}
-        return log
 
     def configure_optimizers(self):
         lr = self.learning_rate

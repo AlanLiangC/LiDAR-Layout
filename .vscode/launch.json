@@ -31,7 +31,7 @@
                 "-b", "../configs/lidar_diffusion/nuscenes/layout_cond_c2_p4.yaml",
                 "-t",
                 "--gpus", "1",
-                "--batch_size", "1",
+                "--batch_size", "2",
                 "--num_workers", "1"
 
             ]

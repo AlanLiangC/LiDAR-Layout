@@ -223,7 +223,7 @@ class LayoutTransformerEncoder(nn.Module):
         outputs = {}
         obj_bbox, obj_bbox_2d, obj_class = torch.split(layout, [8, 2, 1], dim=-1)
         is_valid_obj = obj_class > 0
-        obj_class = (obj_class - 1).squeeze(dim=-1)
+        obj_class = obj_class.squeeze(dim=-1)
         assert (obj_class is not None) or (obj_bbox is not None) or (obj_mask is not None)
 
         xf_in = None

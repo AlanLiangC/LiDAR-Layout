@@ -198,6 +198,7 @@ class nuScenesLayoutBase(nuScenesBase):
         gt_boxes = np.concatenate((scaled_boxes, centers_coord_2d.reshape(-1,2), gt_classes.reshape(-1, 1).astype(np.float32)), axis=1)
         input_dict['layout'] = gt_boxes
 
+        input_dict.pop('points', None)
         input_dict.pop('gt_names', None)
 
         return input_dict

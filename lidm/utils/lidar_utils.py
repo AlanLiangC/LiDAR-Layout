@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 
-def pcd2coord2d(pcd, fov, depth_range, labels=None):
+def pcd2coord2d(pcd, fov, depth_range, labels=None, mask=True):
     # laser parameters
     fov_up = fov[0] / 180.0 * np.pi  # field of view up in rad
     fov_down = fov[1] / 180.0 * np.pi  # field of view down in rad
@@ -12,11 +12,12 @@ def pcd2coord2d(pcd, fov, depth_range, labels=None):
     # get depth (distance) of all points
     depth = np.linalg.norm(pcd, 2, axis=-1)
 
-    # mask points out of range
-    mask = np.logical_and(depth > depth_range[0], depth < depth_range[1])
-    if pcd.ndim == 3:
-        mask = mask.all(axis=1)
-    depth, pcd = depth[mask], pcd[mask]
+    if mask:
+        # mask points out of range
+        mask = np.logical_and(depth > depth_range[0], depth < depth_range[1])
+        if pcd.ndim == 3:
+            mask = mask.all(axis=1)
+        depth, pcd = depth[mask], pcd[mask]
 
     # get scan components
     scan_x, scan_y, scan_z = pcd[..., 0], pcd[..., 1], pcd[..., 2]

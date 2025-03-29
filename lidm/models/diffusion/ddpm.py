@@ -2302,7 +2302,7 @@ class DiffusionWrapper(pl.LightningModule):
         super().__init__()
         self.diffusion_model = instantiate_from_config(diff_model_config)
         self.conditioning_key = conditioning_key
-        assert self.conditioning_key in [None, 'graph_crossattn', 'concat', 'crossattn', 'hybrid', 'adm']
+        assert self.conditioning_key in [None, 'graph_crossattn', 'layout_crossattn', 'concat', 'crossattn', 'hybrid', 'adm', 'layout']
 
     def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, **kwargs):
         if self.conditioning_key is None:
@@ -2325,6 +2325,8 @@ class DiffusionWrapper(pl.LightningModule):
             out = self.diffusion_model(x, kwargs['obj_embed'], kwargs['triples'], t, context=c_crossattn)
             out = out.squeeze(-1)
             assert out.shape == torch.Size([B, D])
+        elif self.conditioning_key == 'layout_crossattn':
+            out = self.diffusion_model(x, t, layout_outputs=kwargs)
         else:
             raise NotImplementedError()
 

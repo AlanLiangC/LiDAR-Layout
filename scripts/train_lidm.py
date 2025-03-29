@@ -19,7 +19,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateM
 from pytorch_lightning.utilities.distributed import rank_zero_only
 from pytorch_lightning.utilities import rank_zero_info
 
-import sys
 sys.path.append('../')
 
 from lidm.data.base import Txt2ImgIterableBaseDataset
@@ -72,15 +71,6 @@ def get_parser(**parser_kwargs):
              "Parameters can be overwritten or added with command-line options of the form `--key value`.",
         default=list(),
     )
-    parser.add_argument(
-        "-t",
-        "--train",
-        type=str2bool,
-        const=True,
-        default=False,
-        nargs="?",
-        help="train",
-    )
 
     parser.add_argument(
         "--batch_size",
@@ -96,6 +86,15 @@ def get_parser(**parser_kwargs):
         help="num_workers",
     )
 
+    parser.add_argument(
+        "-t",
+        "--train",
+        type=str2bool,
+        const=True,
+        default=False,
+        nargs="?",
+        help="train",
+    )
     parser.add_argument(
         "--no-test",
         type=str2bool,
@@ -188,7 +187,7 @@ def worker_init_fn(_):
 
 class DataModuleFromConfig(pl.LightningDataModule):
     def __init__(self, batch_size, train=None, validation=None, test=None, predict=None, dataset=None, aug=None,
-                 wrap=False, num_workers=None, shuffle_test_loader=False, use_worker_init_fn=False,
+                 wrap=False, num_workers=None, shuffle_test_loader=False, use_worker_init_fn=False, use_collate_fn=False,
                  shuffle_val_dataloader=False):
         super().__init__()
         self.datasets = None
@@ -196,6 +195,7 @@ class DataModuleFromConfig(pl.LightningDataModule):
         self.dataset_configs = dict()
         self.num_workers = num_workers if num_workers is not None else batch_size
         self.use_worker_init_fn = use_worker_init_fn
+        self.use_collate_fn = use_collate_fn
         basic_config = {'dataset_config': dataset, 'aug_config': aug}
         if train is not None:
             train['params'] = {**train['params'], **basic_config}
@@ -231,22 +231,30 @@ class DataModuleFromConfig(pl.LightningDataModule):
             init_fn = worker_init_fn
         else:
             init_fn = None
+        if self.use_collate_fn:
+            collate_fn = self.datasets["train"].data.collate_fn
+        else:
+            collate_fn = None
         return DataLoader(self.datasets["train"], batch_size=self.batch_size,
                           num_workers=self.num_workers, shuffle=False if is_iterable_dataset else True,
                           worker_init_fn=init_fn,
-                          collate_fn=self.datasets["train"].data.collate_fn)
+                          collate_fn=collate_fn)
 
     def _val_dataloader(self, shuffle=False):
         if isinstance(self.datasets['validation'], Txt2ImgIterableBaseDataset) or self.use_worker_init_fn:
             init_fn = worker_init_fn
         else:
             init_fn = None
+        if self.use_collate_fn:
+            collate_fn = self.datasets["validation"].data.collate_fn
+        else:
+            collate_fn = None
         return DataLoader(self.datasets["validation"],
                           batch_size=self.batch_size,
                           num_workers=self.num_workers,
                           worker_init_fn=init_fn,
                           shuffle=shuffle,
-                          collate_fn=self.datasets["validation"].data.collate_fn)
+                          collate_fn=collate_fn)
 
     def _test_dataloader(self, shuffle=False):
         is_iterable_dataset = isinstance(self.datasets['train'], Txt2ImgIterableBaseDataset)
@@ -425,17 +433,15 @@ class ImageLogger(Callback):
         return False
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        pass
-        # if not self.disabled and (pl_module.global_step > 0 or self.log_first_step):
-        #     self.log_img(pl_module, batch, batch_idx, split="train")
+        if not self.disabled and (pl_module.global_step > 0 or self.log_first_step):
+            self.log_img(pl_module, batch, batch_idx, split="train")
 
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        pass
-        # if not self.disabled and pl_module.global_step > 0:
-        #     self.log_img(pl_module, batch, batch_idx, split="val")
-        # if hasattr(pl_module, 'calibrate_grad_norm'):
-        #     if (pl_module.calibrate_grad_norm and batch_idx % 25 == 0) and batch_idx > 0:
-        #         self.log_gradients(trainer, pl_module, batch_idx=batch_idx)
+        if not self.disabled and pl_module.global_step > 0:
+            self.log_img(pl_module, batch, batch_idx, split="val")
+        if hasattr(pl_module, 'calibrate_grad_norm'):
+            if (pl_module.calibrate_grad_norm and batch_idx % 25 == 0) and batch_idx > 0:
+                self.log_gradients(trainer, pl_module, batch_idx=batch_idx)
 
 
 class CUDACallback(Callback):
@@ -577,34 +583,16 @@ if __name__ == "__main__":
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
 
-        # data
-        if opt.batch_size is not None:
-            config.data.params.batch_size = opt.batch_size
-        if opt.num_workers is not None:
-            config.data.params.num_workers = opt.num_workers
-        data = instantiate_from_config(config.data)
-        # NOTE according to https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html
-        # calling these ourselves should not be necessary but it is.
-        # lightning still takes care of proper multiprocessing though
-        data.prepare_data()
-        data.setup()
-        test = data.datasets['train'][0]  # for debug
-
-        print("#### Data #####")
-        for k in data.datasets:
-            print(f"{k}, {data.datasets[k].__class__.__name__}, {len(data.datasets[k])}")
-
         # model
         if 'autoencoder' in config.model.target:
             config.model.params.lossconfig.params.dataset_config = config.data.params.dataset
-        config.model.params.cond_stage_config.params.vocab = data.datasets['train'].data.vocab
         model = instantiate_from_config(config.model)
-
-        # trainer and callbacks
-        trainer_kwargs = dict()
 
         wandb.init(
             project=f"lidar_diffusion_{dataset_name}")
+
+        # trainer and callbacks
+        trainer_kwargs = dict()
 
         # default logger configs
         default_logger_cfgs = {
@@ -663,7 +651,7 @@ if __name__ == "__main__":
         # add callback which sets up log directory
         default_callbacks_cfg = {
             "setup_callback": {
-                "target": "train_layout.SetupCallback",
+                "target": "train_lidm.SetupCallback",
                 "params": {
                     "resume": opt.resume,
                     "now": now,
@@ -675,7 +663,7 @@ if __name__ == "__main__":
                 }
             },
             "image_logger": {
-                "target": "train_layout.ImageLogger",
+                "target": "train_lidm.ImageLogger",
                 "params": {
                     "batch_frequency": 750,
                     "max_images": 4,
@@ -684,14 +672,14 @@ if __name__ == "__main__":
                 }
             },
             "learning_rate_logger": {
-                "target": "train_layout.LearningRateMonitor",
+                "target": "train_lidm.LearningRateMonitor",
                 "params": {
                     "logging_interval": "step",
                     # "log_momentum": True
                 }
             },
             "cuda_callback": {
-                "target": "train_layout.CUDACallback"
+                "target": "train_lidm.CUDACallback"
             },
         }
         if version.parse(pl.__version__) >= version.parse('1.4.0'):
@@ -733,6 +721,23 @@ if __name__ == "__main__":
 
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
         trainer.logdir = logdir
+
+        # data
+        if opt.batch_size is not None:
+            config.data.params.batch_size = opt.batch_size
+        if opt.num_workers is not None:
+            config.data.params.num_workers = opt.num_workers        
+        data = instantiate_from_config(config.data)
+        # NOTE according to https://pytorch-lightning.readthedocs.io/en/latest/datamodules.html
+        # calling these ourselves should not be necessary but it is.
+        # lightning still takes care of proper multiprocessing though
+        data.prepare_data()
+        data.setup()
+        test = data.datasets['train'][0]  # for debug
+
+        print("#### Data #####")
+        for k in data.datasets:
+            print(f"{k}, {data.datasets[k].__class__.__name__}, {len(data.datasets[k])}")
 
         # configure learning rate
         bs, base_lr = config.data.params.batch_size, config.model.base_learning_rate
@@ -789,9 +794,9 @@ if __name__ == "__main__":
         if not opt.no_test and not trainer.interrupted:
             trainer.test(model, data)
     except Exception:
-        # if opt.debug and trainer.global_rank == 0:
-        #     import pdb as debugger
-        #     debugger.post_mortem()
+        if opt.debug and trainer.global_rank == 0:
+            import pdb as debugger
+            debugger.post_mortem()
         raise
     # finally:
     #     # move newly created debug project to debug_runs

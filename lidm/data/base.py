@@ -9,7 +9,7 @@ from PIL import Image
 import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset, IterableDataset
 
-from ..utils.aug_utils import get_lidar_transform, get_camera_transform, get_anno_transform
+from ..utils.aug_utils import get_lidar_transform, get_lidar_box_transform, get_camera_transform, get_anno_transform
 
 
 class DatasetBase(Dataset):
@@ -26,6 +26,7 @@ class DatasetBase(Dataset):
         self.filtered_map_cats = dataset_config.filtered_map_cats
         self.depth_scale = dataset_config.depth_scale
         self.log_scale = dataset_config.log_scale
+        self.dataset_config = dataset_config
 
         if self.log_scale:
             self.depth_thresh = (np.log2(1./255. + 1) / self.depth_scale) * 2. - 1 + 1e-6
@@ -51,7 +52,7 @@ class DatasetBase(Dataset):
         self.lidar_transform = get_lidar_transform(aug_config, split)
         self.anno_transform = get_anno_transform(aug_config, split) if condition_key in ['bbox', 'center'] else None
         self.view_transform = get_camera_transform(aug_config, split) if condition_key in ['camera'] else None
-
+        self.lidar_box_transform = get_lidar_box_transform(aug_config, split)
         self.prepare_data()
 
     def prepare_data(self):

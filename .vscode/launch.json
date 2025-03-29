@@ -20,12 +20,20 @@
                 // "--batch_size", "2",
                 // "--num_workers", "1"
 
-                // sample
-                "-d", "nuscenes",
-                "-r", "../models/layout/nuscenes/last.ckpt",
-                "-n", "10",
-                "-b", "2",
-                "--eval"
+                // sample layout
+                // "-d", "nuscenes",
+                // "-r", "../models/layout/nuscenes/last.ckpt",
+                // "-n", "10",
+                // "-b", "2",
+                // "--eval"
+
+                // train lidar diffusion
+                "-b", "../configs/lidar_diffusion/nuscenes/layout_cond_c2_p4.yaml",
+                "-t",
+                "--gpus", "1",
+                "--batch_size", "1",
+                "--num_workers", "1"
+
             ]
 
         }

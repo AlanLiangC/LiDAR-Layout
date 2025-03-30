@@ -687,7 +687,8 @@ class LatentDiffusion(DDPM):
             else:
                 c = xc
             if bs is not None:
-                c = c[:bs]
+                if not isinstance(c, dict):
+                    c = c[:bs]
 
             if self.use_positional_encodings:
                 pos_x, pos_y = self.compute_latent_shifts(batch)

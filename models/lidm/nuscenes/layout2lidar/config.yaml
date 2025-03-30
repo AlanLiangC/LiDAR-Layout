@@ -114,22 +114,20 @@ data:
     train:
       target: lidm.data.nusc_dataset.nuScenesLayoutBase
       params:
-        split: train
         condition_key: layout
-        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes/v1.0-trainval
-        # info_path: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_train.pkl
-        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
-        info_path: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_train.pkl
+        data_root: /home/alan/AlanLiang/Dataset/Nuscenes/v1.0-trainval
+        info_path: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_train.pkl
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
+        # info_path: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_train.pkl
     
     validation:
       target: lidm.data.nusc_dataset.nuScenesLayoutBase
       params:
-        split: val
         condition_key: layout
-        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes/v1.0-trainval
-        # info_path: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_val.pkl
-        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
-        info_path: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_val.pkl
+        data_root: /home/alan/AlanLiang/Dataset/Nuscenes/v1.0-trainval
+        info_path: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_val.pkl
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
+        # info_path: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_val.pkl
 
 lightning:
 

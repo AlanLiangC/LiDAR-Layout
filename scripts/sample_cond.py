@@ -14,6 +14,8 @@ import joblib
 from omegaconf import OmegaConf
 from PIL import Image
 
+sys.path.append('../')
+
 from lidm.utils.misc_utils import instantiate_from_config, set_seed
 from lidm.utils.lidar_utils import range2pcd
 from lidm.eval.eval_utils import evaluate
@@ -336,8 +338,12 @@ if __name__ == "__main__":
                                       'aug_config': config['data']['params']['aug'], 'return_pcd': True,
                                       'max_objects_per_image': 5})
         dataset = instantiate_from_config(data_config)
+        if config['data']['params'].get('use_collate_fn', False):
+            collate_fn = dataset.collate_fn
+        else:
+            collate_fn = test_collate_fn
         dataloader = DataLoader(dataset, batch_size=opt.batch_size, num_workers=8, shuffle=False, drop_last=False,
-                                collate_fn=test_collate_fn)
+                                collate_fn=collate_fn)
 
         # settings
         log_config = {'sample': True, 'ddim_steps': opt.custom_steps,

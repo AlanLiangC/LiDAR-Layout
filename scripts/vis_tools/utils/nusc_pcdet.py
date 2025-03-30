@@ -2,15 +2,16 @@ from pathlib import Path
 import pickle
 import numpy as np
 from lidm.data.nuscenes_layout_dataset import nuScenesLayoutVal
+from lidm.data.nusc_dataset import nuScenesLayoutBase
 
 class NUSC_PCDet:
     def __init__(self, data_root):
         self.raw_root = Path('/home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval')
         self.data_root = Path(data_root)
-        info_path = Path(data_root) / 'nuscenes_infos_val.pkl'
-        with open(info_path, 'rb') as f:
+        self.info_path = Path(data_root) / 'nuscenes_infos_val.pkl'
+        with open(self.info_path, 'rb') as f:
             self.data_infos = pickle.load(f)
-        # scene dataset
+        # layout dataset
         self.scene_dataset = nuScenesLayoutVal(
             root='/home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes',
             split='val_scans',
@@ -24,6 +25,18 @@ class NUSC_PCDet:
             recompute_clip=False,
             eval=True,
             eval_type='none')
+        
+    def build_box_lidar_dataset(self, dataset_config):
+        # box dataset
+        dataset_config['split'] = 'val'
+        dataset_config['condition_key'] = 'layout'
+        dataset_config['data_root'] = str(self.raw_root)
+        dataset_config['info_path'] = str(self.info_path)
+
+        self.box_lidar_dataset = nuScenesLayoutBase(
+            **dataset_config
+        )
+        self.box_lidar_dataset.out_build_dataset(self.data_infos)
 
     @property
     def __len__(self):

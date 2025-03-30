@@ -164,3 +164,4 @@ scripts/ALTest
 *.ckpt
 
 models/layout/nuscenes/samples
+samples

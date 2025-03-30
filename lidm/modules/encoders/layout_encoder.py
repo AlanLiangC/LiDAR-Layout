@@ -177,7 +177,7 @@ class LayoutTransformerEncoder(nn.Module):
             self.obj_class_embedding = nn.Embedding(num_classes_for_layout_object, hidden_dim)
         if 'obj_bbox' in self.used_condition_types:
             # x,y,z,l,w,h,cos,sin,x_2d,y_2d
-            self.obj_bbox_embedding = nn.Linear(2, hidden_dim)
+            self.obj_bbox_embedding = nn.Linear(4, hidden_dim)
             self.obj_bbox_encoding = nn.Linear(8, hidden_dim)
         if 'obj_mask' in self.used_condition_types:
             self.obj_mask_embedding = nn.Linear(mask_size_for_layout_object * mask_size_for_layout_object, hidden_dim)
@@ -202,7 +202,7 @@ class LayoutTransformerEncoder(nn.Module):
             interval_i = 1.0 / resolution[0]
             interval_j = 1.0 / resolution[1]
             self.image_patch_bbox_embedding['resolution{}'.format(whole_resolution_i)] = torch.FloatTensor(
-                [(interval_j * j, interval_i * i) for i in range(resolution[0]) for j in range(resolution[1])],
+                [(interval_j * j, interval_i * i, interval_j * (j + 1), interval_i * (i + 1)) for i in range(resolution[0]) for j in range(resolution[1])],
             ).cuda()  # (L, 4)
 
     def convert_to_fp16(self):
@@ -221,7 +221,7 @@ class LayoutTransformerEncoder(nn.Module):
 
     def forward(self, layout, obj_mask=None):
         outputs = {}
-        obj_bbox, obj_bbox_2d, obj_class = torch.split(layout, [8, 2, 1], dim=-1)
+        obj_bbox, obj_bbox_2d, obj_class = torch.split(layout, [8, 4, 1], dim=-1)
         is_valid_obj = obj_class > 0
         obj_class = obj_class.squeeze(dim=-1)
         assert (obj_class is not None) or (obj_bbox is not None) or (obj_mask is not None)

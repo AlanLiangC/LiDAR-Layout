@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QMainWindow, QDesktopWidget, QHBoxLayout, QVBoxLayou
 from utils import gl_engine as gl
 from utils.nusc_pcdet import NUSC_PCDet
 from utils.generate_graph import generate_graph
-from vis_tools.functions import LidarScene
+from vis_tools.functions import LidarScene, LiDM_Sampler
 class MainWindow(QWidget):
 
     def __init__(self) -> None:
@@ -54,6 +54,10 @@ class MainWindow(QWidget):
         self.generate_layout_button = QPushButton("Gen Layout")
         self.scene_graph_functions_layout.addWidget(self.generate_layout_button)
         self.generate_layout_button.clicked.connect(self.generate_layout)
+        # generate points
+        self.generate_points_w_layout_button = QPushButton("Gen Points")
+        self.scene_graph_functions_layout.addWidget(self.generate_points_w_layout_button)
+        self.generate_points_w_layout_button.clicked.connect(self.generate_points_w_layout)
         # show scene graph
         self.show_scene_graph_button = QPushButton("Show Scene Graph")
         self.scene_graph_functions_layout.addWidget(self.show_scene_graph_button)
@@ -99,6 +103,11 @@ class MainWindow(QWidget):
         mesh = gl.get_points_mesh(points[:,:3], 5)
         self.current_mesh = mesh
         self.viewer.addItem(mesh)
+
+    def add_custom_points(self, points, viewer):
+        viewer.items = []
+        mesh = gl.get_points_mesh(points[:,:3], 5)
+        viewer.addItem(mesh)
 
     def show_boxes_3d(self):
         scaled_boxes = self.scene_data_dict['encoder']['boxes']
@@ -198,6 +207,18 @@ class MainWindow(QWidget):
         box_names = [self.dataset.scene_dataset.classes_r[idx] for idx in self.scene_data_dict['encoder']['objs'].numpy()]
         box_info = gl.create_boxes(bboxes_3d=gene_boxes, box_texts=box_names)
         self.add_boxes_to_secene_graph(box_info)
+
+    def generate_points_w_layout(self):
+        if not hasattr(self, 'lidar_diffusion'):
+            self.lidar_diffusion = LiDM_Sampler(ckpt_path='/home/alan/AlanLiang/Projects/AlanLiang/LiDAR-Layout/models/lidm/nuscenes/layout2lidar/last.ckpt')
+            self.lidar_diffusion.build_model()
+            self.dataset.build_box_lidar_dataset(self.lidar_diffusion.data_config)
+            self.logger.info('Initial Model Successfully!')
+
+        batch_dict = self.dataset.box_lidar_dataset.__getitem__(self.sample_index)
+        batch = self.dataset.box_lidar_dataset.collate_fn([batch_dict])
+        sample_points = self.lidar_diffusion.sample_from_cond(batch)
+        self.add_custom_points(sample_points, self.scene_graph_viewer)
 
     def show_scene_graph(self):
         generate_graph(self.dataset.scene_dataset, self.scene_data_dict)

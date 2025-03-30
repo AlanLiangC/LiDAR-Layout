@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 from collections import defaultdict
 from .base import DatasetBase
-from ..utils.lidar_utils import pcd2range, pcd2coord2d, range2pcd
+from ..utils.lidar_utils import pcd2range, box2coord2dx2, range2pcd
 
 class nuScenesBase(DatasetBase):
     def __init__(self, **kwargs):
@@ -107,12 +107,15 @@ class nuScenesLayoutBase(nuScenesBase):
     def __init__(self, **kwargs):
         self.info_path = kwargs['info_path']
         self.class_names = ['car','truck', 'construction_vehicle', 'bus', 'trailer', 'motorcycle', 'bicycle', 'pedestrian']
-        super().__init__(split='train', **kwargs)
+        super().__init__(**kwargs)
 
     def prepare_data(self):
         with open(self.info_path, 'rb') as f:
             self.data = pickle.load(f)
         self.data = self.balanced_infos_resampling(self.data)
+
+    def out_build_dataset(self, data_infos):
+        self.data = data_infos
 
     def balanced_infos_resampling(self, infos):
         """
@@ -191,18 +194,33 @@ class nuScenesLayoutBase(nuScenesBase):
         input_dict['mask'] = proj_mask
 
         #  layout
-        box_centers = input_dict['gt_boxes'][:,:3]
-        centers_coord_2d, _ = pcd2coord2d(box_centers, self.fov, self.depth_range, mask=False)
+        centers_coord_2d = box2coord2dx2(input_dict['gt_boxes'], self.fov, self.depth_range)
         gt_classes = np.array([self.class_names.index(n) + 1 for n in input_dict['gt_names']], dtype=np.int32)
         scaled_boxes = self.scale_boxes(input_dict['gt_boxes'])
-        gt_boxes = np.concatenate((scaled_boxes, centers_coord_2d.reshape(-1,2), gt_classes.reshape(-1, 1).astype(np.float32)), axis=1)
+        gt_boxes = np.concatenate((scaled_boxes, centers_coord_2d.reshape(-1,4), gt_classes.reshape(-1, 1).astype(np.float32)), axis=1)
         input_dict['layout'] = gt_boxes
+
+        if self.return_pcd:
+            reproj_sweep, _, _ = range2pcd(proj_range[0] * .5 + .5, self.fov, self.depth_range, self.depth_scale, self.log_scale)
+            input_dict['reproj'] = reproj_sweep.astype(np.float32)
 
         input_dict.pop('points', None)
         input_dict.pop('gt_names', None)
 
         return input_dict
     
+    def test_collate_fn(self, data):
+        output = {}
+        keys = data[0].keys()
+        for k in keys:
+            v = [d[k] for d in data]
+            if k not in ['reproj', 'raw']:
+                v = torch.from_numpy(np.stack(v, 0))
+            else:
+                v = [d[k] for d in data]
+            output[k] = v
+        return output
+
     @staticmethod
     def collate_fn(batch_list, _unused=False):
         data_dict = defaultdict(list)
@@ -221,6 +239,8 @@ class nuScenesLayoutBase(nuScenesBase):
                     for k in range(batch_size):
                         batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k]
                     ret[key] = batch_gt_boxes3d
+                elif key in ['reproj']:
+                    ret[key] = val
                 else:
                     ret[key] = np.stack(val, axis=0)
             except:
@@ -228,7 +248,10 @@ class nuScenesLayoutBase(nuScenesBase):
                 raise TypeError
 
         for key, value in ret.items():
-            ret[key] = torch.from_numpy(value).float()
-
+            try:
+                ret[key] = torch.from_numpy(value).float()
+            except:
+                ret[key] = value
+            
         ret['batch_size'] = batch_size * batch_size_ratio
         return ret

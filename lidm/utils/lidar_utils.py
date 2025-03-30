@@ -67,7 +67,7 @@ def box2coord2dx2(boxes_3d, fov, depth_range):
     corners_3d += c_xyz
     corners_3d = np.transpose(corners_3d, (0,2,1)).reshape(-1, 3)
 
-    corners_2d, _ = pcd2coord2d(corners_3d, fov=fov, depth_range=depth_range)
+    corners_2d, _ = pcd2coord2d(corners_3d, fov=fov, depth_range=depth_range, mask=False)
     corners_3d = corners_3d.reshape(num_box, 8, 3)
     corners_2d = corners_2d.reshape(num_box, 8, 2)
     corners_2d = [np.min(corners_2d[...,0], axis=1), np.min(corners_2d[...,1], axis=1), 

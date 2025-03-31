@@ -107,6 +107,7 @@ class nuScenesLayoutBase(nuScenesBase):
     def __init__(self, **kwargs):
         self.info_path = kwargs['info_path']
         self.class_names = ['car','truck', 'construction_vehicle', 'bus', 'trailer', 'motorcycle', 'bicycle', 'pedestrian']
+        self.max_layout = kwargs['max_layout']
         super().__init__(**kwargs)
 
     def prepare_data(self):
@@ -235,9 +236,12 @@ class nuScenesLayoutBase(nuScenesBase):
             try:
                 if key in ['gt_boxes', 'layout']:
                     max_gt = max([len(x) for x in val])
-                    batch_gt_boxes3d = np.zeros((batch_size, max_gt, val[0].shape[-1]), dtype=np.float32)
+                    batch_gt_boxes3d = np.zeros((batch_size, 13, val[0].shape[-1]), dtype=np.float32)
                     for k in range(batch_size):
-                        batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k]
+                        if val[k].__len__() <= 13:
+                            batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k]
+                        else:
+                            batch_gt_boxes3d[k] = val[k][:13]
                     ret[key] = batch_gt_boxes3d
                 elif key in ['reproj']:
                     ret[key] = val

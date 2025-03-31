@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QMainWindow, QDesktopWidget, QHBoxLayout, QVBoxLayou
 from utils import gl_engine as gl
 from utils.nusc_pcdet import NUSC_PCDet
 from utils.generate_graph import generate_graph
+from utils.common import box2coord3d
 from vis_tools.functions import LidarScene, LiDM_Sampler
 class MainWindow(QWidget):
 
@@ -115,6 +116,11 @@ class MainWindow(QWidget):
         raw_boxes = self.dataset.scene_dataset.re_scale_box(scaled_boxes)
         box_info = gl.create_boxes(bboxes_3d=raw_boxes, box_texts=box_names)
         self.add_boxes_to_viewer(box_info)
+
+        # add boxex corners
+        boxes_corners = box2coord3d(raw_boxes)
+        mesh = gl.get_points_mesh(boxes_corners[:,:3], 10)
+        self.viewer.addItem(mesh)
 
     def show_triples(self):
         self.scene_triples_list.clear()

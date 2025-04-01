@@ -1,7 +1,7 @@
 from pathlib import Path
 import pickle
 import numpy as np
-from lidm.data.nuscenes_layout_dataset import nuScenesLayoutVal
+from lidm.data.nuscenes_layout_dataset import nuScenesLayoutVal, nuScenesLayoutTrain
 from lidm.data.nusc_dataset import nuScenesLayoutBase
 
 class NUSC_PCDet:
@@ -14,7 +14,7 @@ class NUSC_PCDet:
         # layout dataset
         self.scene_dataset = nuScenesLayoutVal(
             root='/home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes',
-            split='val_scans',
+            split='val',
             use_scene_rels=True,
             with_changes=False,
             with_CLIP=True,
@@ -29,6 +29,7 @@ class NUSC_PCDet:
     def build_box_lidar_dataset(self, dataset_config):
         # box dataset
         dataset_config['split'] = 'val'
+        dataset_config['max_layout'] = 13
         dataset_config['condition_key'] = 'layout'
         dataset_config['data_root'] = str(self.raw_root)
         dataset_config['info_path'] = str(self.info_path)

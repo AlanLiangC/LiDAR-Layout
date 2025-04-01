@@ -67,6 +67,9 @@ class MainWindow(QWidget):
     def init_scene_graph_window(self):
         self.scene_graph_layout = QVBoxLayout()
         # viewer
+        self.lidar_recon_viewer = gl.AL_viewer()
+        self.scene_graph_layout.addWidget(self.lidar_recon_viewer)
+        # viewer
         self.scene_graph_viewer = gl.AL_viewer()
         self.scene_graph_layout.addWidget(self.scene_graph_viewer)
 
@@ -223,7 +226,8 @@ class MainWindow(QWidget):
 
         batch_dict = self.dataset.box_lidar_dataset.__getitem__(self.sample_index)
         batch = self.dataset.box_lidar_dataset.collate_fn([batch_dict])
-        sample_points = self.lidar_diffusion.sample_from_cond(batch)
+        recon_points, sample_points = self.lidar_diffusion.sample_from_cond(batch)
+        self.add_custom_points(recon_points, self.lidar_recon_viewer)
         self.add_custom_points(sample_points, self.scene_graph_viewer)
 
     def show_scene_graph(self):

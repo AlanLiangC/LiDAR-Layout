@@ -21,5 +21,6 @@ class LiDM_Sampler(object):
                       'plot_diffusion_rows': False, 'dset': 'nuscenes'}
         
         logs = self.model.log_images(batch, N=1, split='val', **log_config)
+        recon_points = custom_to_pcd(logs["reconstruction"][0], self.configs)[0].astype(np.float32)
         sample_points = custom_to_pcd(logs["samples"][0], self.configs)[0].astype(np.float32)
-        return sample_points
+        return recon_points, sample_points

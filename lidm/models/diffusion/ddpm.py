@@ -21,7 +21,7 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 from ...utils.misc_utils import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config, print_fn, preprocess_angle2sincos
 from ...modules.ema import LitEma
 from ...modules.distributions.distributions import normal_kl, DiagonalGaussianDistribution
-from ...models.autoencoder import VQModelInterface, IdentityFirstStage, AutoencoderKL
+from ..ae.autoencoder import VQModelInterface, IdentityFirstStage, AutoencoderKL
 from ...modules.basic import make_beta_schedule, extract_into_tensor, noise_like
 from ...models.diffusion.ddim import DDIMSampler, LayoutDDIMSampler
 

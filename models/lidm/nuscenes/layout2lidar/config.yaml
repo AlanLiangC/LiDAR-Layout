@@ -68,7 +68,7 @@ model:
         used_condition_types: [
           'obj_class', 'obj_bbox', 'is_valid_obj'
         ]
-        layout_length: 12
+        layout_length: &layout_length 13
         num_classes_for_layout_object: 9 # 8 + 1
         mask_size_for_layout_object: 32
         hidden_dim: 256
@@ -76,8 +76,8 @@ model:
         num_layers: 6
         num_heads: 8
         use_final_ln: True
-        use_positional_embedding: False
-        not_use_layout_fusion_module: true
+        use_positional_embedding: false
+        not_use_layout_fusion_module: false
         resolution_to_attention: [ 4, 2, 1 ]
         use_key_padding_mask: False
 
@@ -114,20 +114,24 @@ data:
     train:
       target: lidm.data.nusc_dataset.nuScenesLayoutBase
       params:
+        split: train
         condition_key: layout
-        data_root: /home/alan/AlanLiang/Dataset/Nuscenes/v1.0-trainval
-        info_path: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_train.pkl
-        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
-        # info_path: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_train.pkl
+        max_layout: *layout_length
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes/v1.0-trainval
+        # info_path: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_train.pkl
+        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
+        info_path: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_train.pkl
     
     validation:
       target: lidm.data.nusc_dataset.nuScenesLayoutBase
       params:
+        split: val
         condition_key: layout
-        data_root: /home/alan/AlanLiang/Dataset/Nuscenes/v1.0-trainval
-        info_path: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_val.pkl
-        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
-        # info_path: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_val.pkl
+        max_layout: *layout_length
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes/v1.0-trainval
+        # info_path: /home/alan/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_val.pkl
+        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
+        info_path: /home/e/e1493786/AlanLiang/Projects/AlanLiang/CentralScene/data/nuscenes/nuscenes_infos_val.pkl
 
 lightning:
 

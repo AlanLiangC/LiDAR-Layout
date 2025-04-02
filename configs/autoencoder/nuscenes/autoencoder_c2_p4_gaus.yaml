@@ -88,13 +88,13 @@ data:
       params:
         condition_key: image
         # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
-        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
+        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/
     validation:
       target: lidm.data.nusc_dataset.nuScenesImageValidation
       params:
         condition_key: image
         # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
-        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/
+        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/
 
 lightning:
   callbacks:

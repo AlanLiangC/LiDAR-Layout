@@ -92,9 +92,9 @@ class VQModel_Gaus(VQModel):
             opacity = self.custom_to_feature(batch_opacity_out,mask)
             sh = self.custom_to_feature(batch_sh_out,mask, is_sh=True)
             self.basic_gaus.create_from_pcd(xyz, rot, scale, opacity, sh)
-            render_pkg = render(self.forward_view_point, self.basic_gaus, bg_color=self.bg_color, scale_factor=self.xyz_scale_factor, device=self.device)
-            forward_depth = render_pkg["depth"]
             render_pkg = render(self.backward_view_point, self.basic_gaus, bg_color=self.bg_color, scale_factor=self.xyz_scale_factor, device=self.device)
+            forward_depth = render_pkg["depth"]
+            render_pkg = render(self.forward_view_point, self.basic_gaus, bg_color=self.bg_color, scale_factor=self.xyz_scale_factor, device=self.device)
             backward_depth = render_pkg["depth"]
             batch_depth = torch.cat([forward_depth, backward_depth], dim=-1)
             depth_all.append(batch_depth)

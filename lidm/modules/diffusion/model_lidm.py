@@ -416,6 +416,155 @@ class Decoder(nn.Module):
             h = torch.tanh(h)
         return h
 
+class Gaus_Decoder(nn.Module):
+    def __init__(self, *, ch, ch_mult, strides, num_res_blocks, attn_levels,
+                 dropout=0.0, resamp_with_conv=True, in_channels, z_channels, give_pre_end=False,
+                 tanh_out=False, use_linear_attn=False, attn_type="vanilla", use_mask=False,
+                 **ignorekwargs):
+        super().__init__()
+        stride2kernel = {(2, 2): (3, 3), (1, 2): (1, 4)}
+        if use_linear_attn: attn_type = "linear"
+        self.ch = ch
+        self.temb_ch = 0
+        self.num_resolutions = len(ch_mult)
+        self.num_res_blocks = num_res_blocks
+        self.in_channels = in_channels
+        self.give_pre_end = give_pre_end
+        self.tanh_out = tanh_out
+        self.sh_degree = 3
+        # compute in_ch_mult, block_in and curr_res at lowest res
+        block_in = ch * ch_mult[self.num_resolutions - 1]
+
+        # z to block_in
+        self.conv_in = CircularConv2d(z_channels,
+                                      block_in,
+                                      kernel_size=3,
+                                      stride=1,
+                                      padding=1)
+
+        # middle
+        self.mid = nn.Module()
+        self.mid.block_1 = ResnetBlock(in_channels=block_in,
+                                       out_channels=block_in,
+                                       temb_channels=self.temb_ch,
+                                       dropout=dropout)
+        self.mid.attn_1 = make_attn(block_in, attn_type=attn_type)
+        self.mid.block_2 = ResnetBlock(in_channels=block_in,
+                                       out_channels=block_in,
+                                       temb_channels=self.temb_ch,
+                                       dropout=dropout)
+
+        # upsampling
+        self.up = nn.ModuleList()
+        for i_level in reversed(range(self.num_resolutions)):
+            stride = tuple(strides[i_level - 1]) if i_level > 0 else None
+            kernel = stride2kernel[stride] if stride is not None else (1, 4)
+            block = nn.ModuleList()
+            attn = nn.ModuleList()
+            block_out = ch * ch_mult[i_level]
+            for i_block in range(self.num_res_blocks + 1):
+                block.append(ResnetBlock(in_channels=block_in,
+                                         out_channels=block_out,
+                                         kernel_size=kernel,
+                                         temb_channels=self.temb_ch,
+                                         dropout=dropout))
+                block_in = block_out
+                if i_level in attn_levels:
+                    attn.append(make_attn(block_in, attn_type=attn_type))
+            up = nn.Module()
+            up.block = block
+            up.attn = attn
+            if stride is not None:
+                up.upsample = Upsample(block_in, resamp_with_conv, stride)
+            self.up.insert(0, up)  # prepend to get consistent order
+
+        # end
+        self.norm_out = Normalize(block_in)
+        self.rot_out = nn.Sequential(CircularConv2d(block_in,
+                                       block_in,
+                                       kernel_size=(1, 4),
+                                       stride=1,
+                                       padding=(1, 2, 0, 0)),
+                                    nn.ReLU(inplace=True),
+                                    CircularConv2d(block_in,
+                                       4,
+                                       kernel_size=(1, 4),
+                                       stride=1,
+                                       padding=(1, 2, 0, 0)),
+                                       )
+        self.scale_out = nn.Sequential(CircularConv2d(block_in,
+                                       block_in,
+                                       kernel_size=(1, 4),
+                                       stride=1,
+                                       padding=(1, 2, 0, 0)),
+                                    nn.ReLU(inplace=True),
+                                    CircularConv2d(block_in,
+                                       3,
+                                       kernel_size=(1, 4),
+                                       stride=1,
+                                       padding=(1, 2, 0, 0)),
+                                       )
+        self.opacity_out = nn.Sequential(CircularConv2d(block_in,
+                                       block_in,
+                                       kernel_size=(1, 4),
+                                       stride=1,
+                                       padding=(1, 2, 0, 0)),
+                                    nn.ReLU(inplace=True),
+                                    CircularConv2d(block_in,
+                                       1,
+                                       kernel_size=(1, 4),
+                                       stride=1,
+                                       padding=(1, 2, 0, 0)),
+                                       )
+        self.sh_out = nn.Sequential(CircularConv2d(block_in,
+                                       block_in,
+                                       kernel_size=(1, 4),
+                                       stride=1,
+                                       padding=(1, 2, 0, 0)),
+                                    nn.ReLU(inplace=True),
+                                    CircularConv2d(block_in,
+                                       4 * (self.sh_degree + 1)**2, # sh=3 intensity raydrop
+                                       kernel_size=(1, 4),
+                                       stride=1,
+                                       padding=(1, 2, 0, 0)),
+                                       )
+        
+    def forward(self, z):
+        self.last_z_shape = z.shape
+
+        # timestep embedding
+        temb = None
+
+        # z to block_in
+        h = self.conv_in(z)
+
+        # middle
+        h = self.mid.block_1(h, temb)
+        h = self.mid.attn_1(h)
+        h = self.mid.block_2(h, temb)
+
+        # upsampling
+        for i_level in reversed(range(self.num_resolutions)):
+            for i_block in range(self.num_res_blocks + 1):
+                h = self.up[i_level].block[i_block](h, temb)
+                if len(self.up[i_level].attn) > 0:
+                    h = self.up[i_level].attn[i_block](h)
+            if i_level != 0:
+                h = self.up[i_level].upsample(h)
+
+        # end
+        if self.give_pre_end:
+            return h
+
+        h = self.norm_out(h)
+        h = nonlinearity(h)
+        # rot
+        rot_out = self.rot_out(h)
+        scale_out = self.scale_out(h)
+        opacity_out = self.opacity_out(h)
+        sh_out = self.sh_out(h)
+        return rot_out, scale_out, opacity_out, sh_out
+
 
 class SimpleDecoder(nn.Module):
     def __init__(self, in_channels, out_channels, *args, **kwargs):
@@ -497,7 +646,6 @@ class UpsampleDecoder(nn.Module):
         h = nonlinearity(h)
         h = self.conv_out(h)
         return h
-
 
 class LatentRescaler(nn.Module):
     def __init__(self, factor, in_channels, mid_channels, out_channels, depth=2):

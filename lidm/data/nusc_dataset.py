@@ -17,11 +17,9 @@ class nuScenesBase(DatasetBase):
 
     @staticmethod
     def load_lidar_sweep(path):
-        scan = np.fromfile(path, dtype=np.float32)
-        scan = scan.reshape((-1, 5))
-        points = scan[:, 0:4]  # get xyz & intensity
-        points[:, 3] = points[:, 3] / 255.0
-        return points
+        scan = np.fromfile(path, dtype=np.float32).reshape((-1, 5))
+        # get xyz & intensity
+        return scan[:, 0:3]
     
     def load_semantic_map(self, path, pcd):
         raise NotImplementedError

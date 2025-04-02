@@ -1,5 +1,6 @@
 import torch
 import numbers as np
+from simple_knn._C import distCUDA2
 from .utils.general_utils import build_scaling_rotation, strip_symmetric, inverse_sigmoid
 
 class GaussianModel:
@@ -90,7 +91,12 @@ class GaussianModel:
         self._xyz = xyz
         self._features_dc = sh[:, :, 0:1].transpose(1, 2).contiguous()
         self._features_rest = sh[:, :, 1:].transpose(1, 2).contiguous()
+
+        dist2 = torch.clamp_min(distCUDA2(xyz), 0.0000001)
+        scale = self.scaling_inverse_activation(torch.sqrt(dist2))[..., None].repeat(1, 3) + scale
+
         self._scaling = scale
+
         self._rotation = rot
         self._opacity = opacity
         self.max_radii2D = xyz.new_zeros((self.get_xyz.shape[0]))

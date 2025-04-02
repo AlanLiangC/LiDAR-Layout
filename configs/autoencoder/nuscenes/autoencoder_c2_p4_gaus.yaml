@@ -88,22 +88,17 @@ data:
       params:
         condition_key: image
         # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
-        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/
+        data_root: /data1/data_share/nuscenes-full/Nuscenes/
     validation:
       target: lidm.data.nusc_dataset.nuScenesImageValidation
       params:
         condition_key: image
         # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
-        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/
+        data_root: /data1/data_share/nuscenes-full/Nuscenes/
 
 lightning:
-  callbacks:
-    image_logger:
-      target: train_lidm.ImageLogger
-      params:
-        batch_frequency: 1000
-        max_images: 8
-        increase_log_steps: true
 
   trainer:
     benchmark: true

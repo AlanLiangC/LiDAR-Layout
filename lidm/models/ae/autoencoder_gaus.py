@@ -92,9 +92,9 @@ class VQModel_Gaus(VQModel):
             opacity = self.custom_to_feature(batch_opacity_out,mask)
             sh = self.custom_to_feature(batch_sh_out,mask, is_sh=True)
             self.basic_gaus.create_from_pcd(xyz, rot, scale, opacity, sh)
-            render_pkg = render(self.backward_view_point, self.basic_gaus, bg_color=self.bg_color, scale_factor=self.xyz_scale_factor, device=self.device)
-            forward_depth = render_pkg["depth"]
             render_pkg = render(self.forward_view_point, self.basic_gaus, bg_color=self.bg_color, scale_factor=self.xyz_scale_factor, device=self.device)
+            forward_depth = render_pkg["depth"]
+            render_pkg = render(self.backward_view_point, self.basic_gaus, bg_color=self.bg_color, scale_factor=self.xyz_scale_factor, device=self.device)
             backward_depth = render_pkg["depth"]
             batch_depth = torch.cat([forward_depth, backward_depth], dim=-1)
             depth_all.append(batch_depth)
@@ -132,8 +132,8 @@ class VQModel_Gaus(VQModel):
             self.log_dict(log_dict_ae_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             # if self.global_step < 1000:
             #     return aeloss_s1 + 0.1 * aeloss_s2
-            return aeloss_s1 + aeloss_s2
-            # return aeloss_s1
+            # return aeloss_s1 + aeloss_s2
+            return aeloss_s1
 
         if optimizer_idx == 1:
             # discriminator
@@ -147,8 +147,8 @@ class VQModel_Gaus(VQModel):
             self.log_dict(log_dict_disc_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             # if self.global_step < 1000:
             #     return discloss_s1 + 0.1 * discloss_s2
-            return discloss_s1 + discloss_s2
-            # return discloss_s1
+            # return discloss_s1 + discloss_s2
+            return discloss_s1
 
     def validation_step(self, batch, batch_idx):
         log_dict = self._validation_step(batch, batch_idx)

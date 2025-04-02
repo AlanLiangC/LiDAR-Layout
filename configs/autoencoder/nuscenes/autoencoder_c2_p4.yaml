@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 4.5e-6
-  target: lidm.models.ae.autoencoder_gaus.VQModel_Gaus
+  target: lidm.models.autoencoder.VQModel
   params:
     monitor: val/rec_loss
     embed_dim: 8
@@ -35,40 +35,22 @@ model:
       attn_levels: []
       dropout: 0.0
 
-      gdconfig:
-        double_z: false
-        z_channels: 8
-        in_channels: 1
-        out_ch: 1
-        ch: 64
-        ch_mult: [1,2,2,4]  # num_down = len(ch_mult)-1
-        strides: [[1,2],[2,2],[2,2]]
-        num_res_blocks: 2
-        attn_levels: []
-        dropout: 0.0
-        dataset_config:
-          size: [32, 1024]
-          fov: [ 10,-30 ]
-          depth_range: [ 1.0,56.0 ]
-          depth_scale: 5.84  # np.log2(depth_max + 1)
-          log_scale: true
-
 
 data:
-  target: train_lidm.DataModuleFromConfig
+  target: main.DataModuleFromConfig
   params:
     batch_size: 4
     num_workers: 8
     wrap: true
     dataset:
-      size: [32, 1024]
-      fov: [ 10,-30 ]
+      size: [64, 1024]
+      fov: [ 3,-25 ]
       depth_range: [ 1.0,56.0 ]
       depth_scale: 5.84  # np.log2(depth_max + 1)
       log_scale: true
       x_range: [ -50.0, 50.0 ]
       y_range: [ -50.0, 50.0 ]
-      z_range: [ -4.0, 2.0 ]
+      z_range: [ -3.0, 1.0 ]
       resolution: 1
       num_channels: 1
       num_cats: 10
@@ -76,30 +58,26 @@ data:
       num_sem_cats: 19
       filtered_map_cats: [ ]
     aug:
-      flip_w_box: false
-      rotate_w_box: false
       flip: true
       rotate: true
       keypoint_drop: false
       keypoint_drop_range: [ 5,20 ]
       randaug: false
     train:
-      target: lidm.data.nusc_dataset.nuScenesImageTrain
+      target: lidm.data.kitti.KITTIImageTrain
       params:
         condition_key: image
-        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
-        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/
     validation:
-      target: lidm.data.nusc_dataset.nuScenesImageValidation
+      target: lidm.data.kitti.KITTIImageValidation
       params:
         condition_key: image
-        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
-        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/
+
+
 
 lightning:
   callbacks:
     image_logger:
-      target: train_lidm.ImageLogger
+      target: main.ImageLogger
       params:
         batch_frequency: 1000
         max_images: 8

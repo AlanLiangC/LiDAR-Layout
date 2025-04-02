@@ -16,20 +16,21 @@ class VQModel_Gaus(VQModel):
         super().__init__(ddconfig, n_embed, embed_dim, lossconfig, ckpt_path, ignore_keys, image_key, 
                          colorize_nlabels, monitor, batch_resize_range, scheduler_config, lr_g_factor, 
                          remap, sane_index_shape, use_ema, lib_name, use_mask, **kwargs)
-
+        
         self.gaus_decoder = model_lidm.Gaus_Decoder(**ddconfig.gdconfig)
         dataset_config = ddconfig.gdconfig.dataset_config
         self.img_size = dataset_config.size
-        self.fov = dataset_config.fov
+        self.fov = [dataset_config.fov[1], dataset_config.fov[0]]
         self.depth_range = dataset_config.depth_range
         self.depth_scale = dataset_config.depth_scale
         self.log_scale = dataset_config.log_scale
         self.basic_gaus = GaussianModel()
         self.build_camera_bg = False
-        # camera
-        # self.build_camera()
-        # scale xyz
+
         self.xyz_scale_factor = 1.0
+
+        if ckpt_path is not None:
+            self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
 
     def build_camera(self): # nuscenes TODO: Other dataset
         l2c = np.array([1, 0, 0, 0,

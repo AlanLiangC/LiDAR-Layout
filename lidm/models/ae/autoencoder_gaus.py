@@ -134,8 +134,8 @@ class VQModel_Gaus(VQModel):
                                             predicted_indices=None, masks=m)
             self.log_dict(log_dict_ae_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_ae_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-            # if self.global_step < 1000:
-            #     return aeloss_s1 + 0.1 * aeloss_s2
+            if self.global_step < 2000:
+                return aeloss_s1# + 0.1 * aeloss_s2
             return aeloss_s1 + aeloss_s2
             # return aeloss_s1
 
@@ -149,8 +149,8 @@ class VQModel_Gaus(VQModel):
                                                 masks=m)
             self.log_dict(log_dict_disc_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_disc_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-            # if self.global_step < 1000:
-            #     return discloss_s1 + 0.1 * discloss_s2
+            if self.global_step < 2000:
+                return discloss_s1# + 0.1 * discloss_s2
             return discloss_s1 + discloss_s2
             # return discloss_s1
 

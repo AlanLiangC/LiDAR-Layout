@@ -83,7 +83,7 @@ class nuScenesImageTrain(nuScenesBase):
         custom_path = 'v1.0-trainval'
         file_paths = [os.path.join(self.data_root, custom_path, x['filename']) 
                            for x in sample_data 
-                           if 'sweeps/LIDAR_TOP' in x['filename']]
+                           if 'samples/LIDAR_TOP' in x['filename']]
         self.data = sorted(file_paths)
 
 class nuScenesImageValidation(nuScenesBase):
@@ -97,7 +97,7 @@ class nuScenesImageValidation(nuScenesBase):
         custom_path = 'v1.0-trainval'
         file_paths = [os.path.join(self.data_root, custom_path, x['filename']) 
                            for x in sample_data 
-                           if 'sweeps/LIDAR_TOP' in x['filename']]
+                           if 'samples/LIDAR_TOP' in x['filename']]
         self.data = sorted(file_paths)
 
 

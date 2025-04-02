@@ -72,7 +72,11 @@ class VQModel_Gaus(VQModel):
 
     def custom_to_pcd(self, x):
         x = (torch.clip(x, -1., 1.) + 1.) / 2.
-        xyz, mask = range2pcd_gpu(x, fov=self.fov, depth_range=self.depth_range, depth_scale=self.depth_scale, log_scale=self.log_scale)
+        # xyz_cpu = range2pcd(x.squeeze().detach().cpu().numpy(), fov=[self.fov[1], self.fov[0]], depth_range=self.depth_range, depth_scale=self.depth_scale, log_scale=self.log_scale)
+        # np.savetxt('/home/alan/AlanLiang/Projects/AlanLiang/LiDAR-Layout/scripts/ALTest/points_cpu.txt', xyz_cpu[0])
+        xyz, mask = range2pcd_gpu(x, fov=[self.fov[1], self.fov[0]], depth_range=self.depth_range, depth_scale=self.depth_scale, log_scale=self.log_scale)
+        # np.savetxt('/home/alan/AlanLiang/Projects/AlanLiang/LiDAR-Layout/scripts/ALTest/points_gpu.txt', xyz.squeeze().detach().cpu().numpy())
+
         return xyz * self.xyz_scale_factor, mask
 
     def custom_to_feature(self, x, mask=None, is_sh=False):
@@ -132,8 +136,8 @@ class VQModel_Gaus(VQModel):
             self.log_dict(log_dict_ae_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             # if self.global_step < 1000:
             #     return aeloss_s1 + 0.1 * aeloss_s2
-            # return aeloss_s1 + aeloss_s2
-            return aeloss_s1
+            return aeloss_s1 + aeloss_s2
+            # return aeloss_s1
 
         if optimizer_idx == 1:
             # discriminator
@@ -147,8 +151,8 @@ class VQModel_Gaus(VQModel):
             self.log_dict(log_dict_disc_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             # if self.global_step < 1000:
             #     return discloss_s1 + 0.1 * discloss_s2
-            # return discloss_s1 + discloss_s2
-            return discloss_s1
+            return discloss_s1 + discloss_s2
+            # return discloss_s1
 
     def validation_step(self, batch, batch_idx):
         log_dict = self._validation_step(batch, batch_idx)
@@ -217,6 +221,7 @@ class VQModel_Gaus(VQModel):
         log = dict()
         x = self.get_input(batch, self.image_key)
         x = x.to(self.device)
+        # self.dec_depth = x.requires_grad_(True)
         if only_inputs:
             log["inputs"] = x
             return log

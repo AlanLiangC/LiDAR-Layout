@@ -129,9 +129,10 @@ class VQModel_Gaus(VQModel):
                                             predicted_indices=None, masks=m)
             self.log_dict(log_dict_ae_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_ae_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-            if self.global_step < 1000:
-                return aeloss_s1 + 0.1 * aeloss_s2
-            return aeloss_s1 + aeloss_s2
+            # if self.global_step < 1000:
+            #     return aeloss_s1 + 0.1 * aeloss_s2
+            # return aeloss_s1 + aeloss_s2
+            return aeloss_s1
 
         if optimizer_idx == 1:
             # discriminator
@@ -143,9 +144,10 @@ class VQModel_Gaus(VQModel):
                                                 masks=m)
             self.log_dict(log_dict_disc_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_disc_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-            if self.global_step < 1000:
-                return discloss_s1 + 0.1 * discloss_s2
-            return discloss_s1 + discloss_s2
+            # if self.global_step < 1000:
+            #     return discloss_s1 + 0.1 * discloss_s2
+            # return discloss_s1 + discloss_s2
+            return discloss_s1
 
     def validation_step(self, batch, batch_idx):
         log_dict = self._validation_step(batch, batch_idx)
@@ -208,3 +210,28 @@ class VQModel_Gaus(VQModel):
         self.log_dict(log_dict_disc_s2)
 
         return self.log_dict
+    
+    @torch.no_grad()
+    def log_images(self, batch, only_inputs=False, plot_ema=False, **kwargs):
+        log = dict()
+        x = self.get_input(batch, self.image_key)
+        x = x.to(self.device)
+        if only_inputs:
+            log["inputs"] = x
+            return log
+        xrec, _ = self(x)
+        xrec_s1, xrec_s2 = xrec
+        if self.use_mask:
+            mask = xrec_s1[:, 1:2] < 0.
+            xrec_s1 = xrec_s1[:, 0:1]
+            xrec_s1[mask] = -1.
+            xrec_s2 = xrec_s2[:, 0:1]
+            xrec_s2[mask] = -1.
+        log["inputs"] = x
+        log["reconstructions_s1"] = xrec_s1
+        log["reconstructions_s2"] = xrec_s2
+        if plot_ema:
+            with self.ema_scope():
+                xrec_ema, _ = self(x)
+                log["reconstructions_ema"] = xrec_ema
+        return log

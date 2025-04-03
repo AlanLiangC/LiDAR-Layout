@@ -97,9 +97,9 @@ class VQModel_Gaus(VQModel):
             sh = self.custom_to_feature(batch_sh_out,mask, is_sh=True)
             self.basic_gaus.create_from_pcd(xyz, rot, scale, opacity, sh)
             render_pkg = render(self.forward_view_point, self.basic_gaus, bg_color=self.bg_color, scale_factor=self.xyz_scale_factor, device=self.device)
-            forward_depth = render_pkg["depth"]
+            forward_depth = render_pkg["intensity_sh"]
             render_pkg = render(self.backward_view_point, self.basic_gaus, bg_color=self.bg_color, scale_factor=self.xyz_scale_factor, device=self.device)
-            backward_depth = render_pkg["depth"]
+            backward_depth = render_pkg["intensity_sh"]
             batch_depth = torch.cat([forward_depth, backward_depth], dim=-1)
             depth_all.append(batch_depth)
         return torch.stack(depth_all, dim=0)
@@ -112,7 +112,8 @@ class VQModel_Gaus(VQModel):
         rot_out, scale_out, opacity_out, sh_out = self.gaus_decoder(quant)
         # gaus rander
         render_range = self.render_range(dec_depth, rot_out, scale_out, opacity_out, sh_out)
-        render_range = scale_range(render_range, self.depth_scale, self.log_scale)
+        render_range = render_range*2 -1
+        # render_range = scale_range(render_range, self.depth_scale, self.log_scale)
         return dec_depth, render_range
     
     def training_step(self, batch, batch_idx, optimizer_idx):
@@ -132,7 +133,7 @@ class VQModel_Gaus(VQModel):
             aeloss_s2, log_dict_ae_s2 = self.loss.forward_s2(x, xrec_s2)
             self.log_dict(log_dict_ae_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_ae_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-            # if self.global_step < 2000:
+            # if self.global_step < 10:
             #     return aeloss_s1# + 0.1 * aeloss_s2
             return aeloss_s1 + aeloss_s2
             # return aeloss_s1

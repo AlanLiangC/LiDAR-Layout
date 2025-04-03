@@ -130,7 +130,7 @@ class VQModel_Gaus(VQModel):
                                             predicted_indices=None, masks=m)
             
             aeloss_s2, log_dict_ae_s2 = self.loss(qloss, x, xrec_s2, optimizer_idx, self.global_step,
-                                            last_layer=self.get_last_layer(), split="train",
+                                            last_layer=None, split="train",
                                             predicted_indices=None, masks=m)
             self.log_dict(log_dict_ae_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_ae_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
@@ -145,7 +145,7 @@ class VQModel_Gaus(VQModel):
                                                 last_layer=self.get_last_layer(), split="train",
                                                 masks=m)
             discloss_s2, log_dict_disc_s2 = self.loss(qloss, x, xrec_s2, optimizer_idx, self.global_step,
-                                                last_layer=self.get_last_layer(), split="train",
+                                                last_layer=None, split="train",
                                                 masks=m)
             self.log_dict(log_dict_disc_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_disc_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
@@ -216,6 +216,40 @@ class VQModel_Gaus(VQModel):
 
         return self.log_dict
     
+    def configure_optimizers(self):
+        lr_d = self.learning_rate
+        lr_g = self.lr_g_factor * self.learning_rate
+        # print("lr_d", lr_d)
+        # print("lr_g", lr_g)
+        opt_ae = torch.optim.Adam(list(self.encoder.parameters()) +
+                                  list(self.decoder.parameters()) +
+                                  list(self.gaus_decoder.parameters()) +
+                                  list(self.quantize.parameters()) +
+                                  list(self.quant_conv.parameters()) +
+                                  list(self.post_quant_conv.parameters()),
+                                  lr=lr_g, betas=(0.5, 0.9))
+        opt_disc = torch.optim.Adam(self.loss.discriminator.parameters(),
+                                    lr=lr_d, betas=(0.5, 0.9))
+
+        if self.scheduler_config is not None:
+            scheduler = instantiate_from_config(self.scheduler_config)
+
+            print("Setting up LambdaLR scheduler...")
+            scheduler = [
+                {
+                    'scheduler': LambdaLR(opt_ae, lr_lambda=scheduler.schedule),
+                    'interval': 'step',
+                    'frequency': 1
+                },
+                {
+                    'scheduler': LambdaLR(opt_disc, lr_lambda=scheduler.schedule),
+                    'interval': 'step',
+                    'frequency': 1
+                },
+            ]
+            return [opt_ae, opt_disc], scheduler
+        return [opt_ae, opt_disc], []
+
     @torch.no_grad()
     def log_images(self, batch, only_inputs=False, plot_ema=False, **kwargs):
         log = dict()

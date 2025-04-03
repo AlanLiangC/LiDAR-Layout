@@ -112,7 +112,7 @@ class VQModel_Gaus(VQModel):
         rot_out, scale_out, opacity_out, sh_out = self.gaus_decoder(quant)
         # gaus rander
         render_range = self.render_range(dec_depth, rot_out, scale_out, opacity_out, sh_out)
-        render_range = render_range*2 -1
+        render_range = render_range*2 - 1
         # render_range = scale_range(render_range, self.depth_scale, self.log_scale)
         return dec_depth, render_range
     
@@ -121,6 +121,7 @@ class VQModel_Gaus(VQModel):
         # try not to fool the heuristics
         x = self.get_input(batch, self.image_key)
         m = self.get_mask(batch) if self.use_mask else None
+        # self.dec_depth = x
         x_rec, qloss, ind = self(x, return_pred_indices=True)
         xrec_s1, xrec_s2 = x_rec
 
@@ -158,6 +159,7 @@ class VQModel_Gaus(VQModel):
 
     def _validation_step(self, batch, batch_idx, suffix=""):
         x = self.get_input(batch, self.image_key)
+        # self.dec_depth = x
         m = self.get_mask(batch) if self.use_mask else None
         xrec, qloss, ind = self(x, return_pred_indices=True)
         xrec_s1, xrec_s2 = xrec

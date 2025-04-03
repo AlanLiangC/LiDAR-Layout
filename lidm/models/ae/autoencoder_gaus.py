@@ -132,8 +132,8 @@ class VQModel_Gaus(VQModel):
             aeloss_s2, log_dict_ae_s2 = self.loss.forward_s2(x, xrec_s2)
             self.log_dict(log_dict_ae_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_ae_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-            if self.global_step < 2000:
-                return aeloss_s1# + 0.1 * aeloss_s2
+            # if self.global_step < 2000:
+            #     return aeloss_s1# + 0.1 * aeloss_s2
             return aeloss_s1 + aeloss_s2
             # return aeloss_s1
 

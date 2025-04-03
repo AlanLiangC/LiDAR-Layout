@@ -130,7 +130,7 @@ class VQModel_Gaus(VQModel):
                                             predicted_indices=None, masks=m)
             
             aeloss_s2, log_dict_ae_s2 = self.loss(qloss, x, xrec_s2, optimizer_idx, self.global_step,
-                                            last_layer=None, split="train",
+                                            last_layer=self.get_last_layer(), split="train",
                                             predicted_indices=None, masks=m)
             self.log_dict(log_dict_ae_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_ae_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
@@ -145,7 +145,7 @@ class VQModel_Gaus(VQModel):
                                                 last_layer=self.get_last_layer(), split="train",
                                                 masks=m)
             discloss_s2, log_dict_disc_s2 = self.loss(qloss, x, xrec_s2, optimizer_idx, self.global_step,
-                                                last_layer=None, split="train",
+                                                last_layer=self.get_last_layer(), split="train",
                                                 masks=m)
             self.log_dict(log_dict_disc_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_disc_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)

@@ -129,9 +129,7 @@ class VQModel_Gaus(VQModel):
                                             last_layer=self.get_last_layer(), split="train",
                                             predicted_indices=None, masks=m)
             
-            aeloss_s2, log_dict_ae_s2 = self.loss(qloss, x, xrec_s2, optimizer_idx, self.global_step,
-                                            last_layer=self.get_last_layer(), split="train",
-                                            predicted_indices=None, masks=m)
+            aeloss_s2, log_dict_ae_s2 = self.loss.forward_s2(x, xrec_s2)
             self.log_dict(log_dict_ae_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_ae_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
             if self.global_step < 2000:
@@ -144,15 +142,11 @@ class VQModel_Gaus(VQModel):
             discloss_s1, log_dict_disc_s1 = self.loss(qloss, x, xrec_s1, optimizer_idx, self.global_step,
                                                 last_layer=self.get_last_layer(), split="train",
                                                 masks=m)
-            discloss_s2, log_dict_disc_s2 = self.loss(qloss, x, xrec_s2, optimizer_idx, self.global_step,
-                                                last_layer=self.get_last_layer(), split="train",
-                                                masks=m)
             self.log_dict(log_dict_disc_s1, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-            self.log_dict(log_dict_disc_s2, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-            if self.global_step < 2000:
-                return discloss_s1# + 0.1 * discloss_s2
-            return discloss_s1 + discloss_s2
-            # return discloss_s1
+            # if self.global_step < 2000:
+            #     return discloss_s1# + 0.1 * discloss_s2
+            # return discloss_s1 + discloss_s2
+            return discloss_s1
 
     def validation_step(self, batch, batch_idx):
         log_dict = self._validation_step(batch, batch_idx)
@@ -173,22 +167,8 @@ class VQModel_Gaus(VQModel):
                                         predicted_indices=None,
                                         masks=m
                                         )
-        aeloss_s2, log_dict_ae_s2 = self.loss(qloss, x, xrec_s2, 0,
-                                        self.global_step,
-                                        last_layer=self.get_last_layer(),
-                                        split="val" + suffix,
-                                        predicted_indices=None,
-                                        masks=m
-                                        )
 
         discloss_s1, log_dict_disc_s1 = self.loss(qloss, x, xrec_s1, 1,
-                                            self.global_step,
-                                            last_layer=self.get_last_layer(),
-                                            split="val" + suffix,
-                                            predicted_indices=None,
-                                            masks=m
-                                            )
-        discloss_s2, log_dict_disc_s2 = self.loss(qloss, x, xrec_s1, 1,
                                             self.global_step,
                                             last_layer=self.get_last_layer(),
                                             split="val" + suffix,
@@ -204,15 +184,6 @@ class VQModel_Gaus(VQModel):
         del log_dict_ae_s1[f"val{suffix}/rec_loss"]
         self.log_dict(log_dict_ae_s1)
         self.log_dict(log_dict_disc_s1)
-
-        rec_loss_s2 = log_dict_ae_s2[f"val{suffix}/rec_loss"]
-        self.log(f"val{suffix}/rec_loss", rec_loss_s2,
-                 prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        self.log(f"val{suffix}/aeloss", aeloss_s2,
-                 prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        del log_dict_ae_s2[f"val{suffix}/rec_loss"]
-        self.log_dict(log_dict_ae_s2)
-        self.log_dict(log_dict_disc_s2)
 
         return self.log_dict
     

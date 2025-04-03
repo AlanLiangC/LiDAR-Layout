@@ -5,7 +5,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-
 class GeoConverter(nn.Module):
     def __init__(self, curve_length=4, bev_only=False, dataset_config=dict()):
         super().__init__()
@@ -51,6 +50,13 @@ class GeoConverter(nn.Module):
 
         return batch_xyz
 
+    def batch_rescale_depth(self, imgs):
+        batch_depth = (imgs * 0.5 + 0.5) * self.depth_scale
+        if self.log_scale:
+            batch_depth = torch.exp2(batch_depth) - 1
+        batch_depth = batch_depth.clamp(self.depth_min, self.depth_max)
+        return batch_depth
+
     def batch_range2bev(self, imgs):
         batch_depth = (imgs * 0.5 + 0.5) * self.depth_scale
         if self.log_scale:
@@ -63,6 +69,14 @@ class GeoConverter(nn.Module):
 
         return batch_bev
 
+    def batch_range2normal(self, coord_image):
+        output = torch.zeros_like(coord_image)
+        dx = coord_image[:, :, 2:, 1:-1] - coord_image[:, :, :-2, 1:-1]
+        dy = coord_image[:, :, 1:-1, 2:] - coord_image[:, :, 1:-1, :-2]
+        normal_map = torch.nn.functional.normalize(torch.cross(dx, dy, dim=1), dim=1)
+        output[:, :, 1:-1, 1:-1] = normal_map
+        return output
+    
     def curve_compress(self, batch_coord):
         compressed_batch_coord = F.avg_pool2d(batch_coord, (1, self.curve_length))
 

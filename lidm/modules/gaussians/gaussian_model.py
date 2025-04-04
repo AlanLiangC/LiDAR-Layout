@@ -92,8 +92,7 @@ class GaussianModel:
         self._features_dc = sh[:, :, 0:1].transpose(1, 2).contiguous()
         self._features_rest = sh[:, :, 1:].transpose(1, 2).contiguous()
 
-        dist2 = torch.clamp_min(distCUDA2(xyz), 0.0000001)
-        scale = self.scaling_inverse_activation(torch.sqrt(dist2))[..., None].repeat(1, 3) + scale
+        scale = self.scaling_inverse_activation(scale.clamp_min(0.01))
 
         self._scaling = scale
 

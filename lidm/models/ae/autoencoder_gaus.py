@@ -137,7 +137,7 @@ class VQModel_Gaus(VQModel):
             # if self.global_step < 10:
             #     return aeloss_s1# + 0.1 * aeloss_s2
             return aeloss_s1 + aeloss_s2
-            # return aeloss_s1
+            # return aeloss_s2
 
         if optimizer_idx == 1:
             # discriminator

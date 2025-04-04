@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 4.5e-6
-  target: lidm.models.autoencoder.VQModel
+  target: lidm.models.ae.autoencoder.VQModel
   params:
     monitor: val/rec_loss
     embed_dim: 8
@@ -37,14 +37,14 @@ model:
 
 
 data:
-  target: main.DataModuleFromConfig
+  target: train_lidm.DataModuleFromConfig
   params:
     batch_size: 4
     num_workers: 8
     wrap: true
     dataset:
-      size: [64, 1024]
-      fov: [ 3,-25 ]
+      size: [32, 1024]
+      fov: [ 10,-30 ]
       depth_range: [ 1.0,56.0 ]
       depth_scale: 5.84  # np.log2(depth_max + 1)
       log_scale: true
@@ -58,26 +58,31 @@ data:
       num_sem_cats: 19
       filtered_map_cats: [ ]
     aug:
+      flip_w_box: false
+      rotate_w_box: false
       flip: true
       rotate: true
       keypoint_drop: false
       keypoint_drop_range: [ 5,20 ]
       randaug: false
     train:
-      target: lidm.data.kitti.KITTIImageTrain
+      target: lidm.data.nusc_dataset.nuScenesImageTrain
       params:
         condition_key: image
+        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
     validation:
-      target: lidm.data.kitti.KITTIImageValidation
+      target: lidm.data.nusc_dataset.nuScenesImageValidation
       params:
         condition_key: image
-
+        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
 
 
 lightning:
   callbacks:
     image_logger:
-      target: main.ImageLogger
+      target: train_lidm.ImageLogger
       params:
         batch_frequency: 1000
         max_images: 8

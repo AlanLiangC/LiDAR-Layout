@@ -98,5 +98,5 @@ class GaussianModel:
 
         self._rotation = rot
         self._opacity = opacity
-        self.max_radii2D = xyz.new_zeros((self.get_xyz.shape[0]))
-        self._t = xyz.new_zeros((self.get_xyz.shape[0]))
+        # self.max_radii2D = xyz.new_zeros((self.get_xyz.shape[0]))
+        # self._t = xyz.new_zeros((self.get_xyz.shape[0]))

@@ -13,7 +13,7 @@ VERSION2DISC = {'v0': NLayerDiscriminator, 'v1': LiDARNLayerDiscriminator, 'v2':
 class VQGeoLPIPSWithDiscriminator(nn.Module):
     def __init__(self, disc_start, codebook_weight=1.0, pixelloss_weight=1.0,
                  disc_num_layers=3, disc_in_channels=3, disc_out_channels=1, disc_factor=1.0, disc_weight=1.0,
-                 mask_factor=0.0, chamfer_factor=0.0, smooth_factor=0.0, norm_factor=0.0, use_actnorm=False, disc_conditional=False,
+                 mask_factor=0.0, chamfer_factor=0.0, smooth_factor=0.1, norm_factor=0.1, use_actnorm=False, disc_conditional=False,
                  disc_ndf=64, disc_loss="hinge", n_classes=None, pixel_loss="l1", disc_version='v1',
                  geo_factor=1.0, curve_length=4, perceptual_factor=1.0, perceptual_type='rangenet_final',
                  dataset_config=dict()):
@@ -87,6 +87,8 @@ class VQGeoLPIPSWithDiscriminator(nn.Module):
                 global_step, last_layer=None, cond=None, split="train", predicted_indices=None, masks=None):
         input_coord = self.geometry_converter(inputs)
         rec_coord = self.geometry_converter(reconstructions[:, 0:1].contiguous())
+        gt_depth = self.geometry_converter.batch_rescale_depth(inputs)
+        pred_depth = self.geometry_converter.batch_rescale_depth(reconstructions[:, 0:1].contiguous())
 
         ############# Reconstruction #############
         # pixel reconstruction loss
@@ -110,10 +112,42 @@ class VQGeoLPIPSWithDiscriminator(nn.Module):
         else:
             perceptual_loss = torch.tensor(0.0)
 
+        # smooth loss
+        if self.smooth_factor > 0:
+            gt_grad_x = gt_depth[:, 0, :, :-1] - gt_depth[:, 0, :, 1:]
+            gt_grad_y = gt_depth[:, 0, :-1, :] - gt_depth[:, 0, 1:, :]
+            mask_x = (torch.where(gt_depth[:, 0, :, :-1] > 0, 1, 0) *
+                      torch.where(gt_depth[:, 0, :, 1:] > 0, 1, 0))
+            mask_y = (torch.where(gt_depth[:, 0, :-1, :] > 0, 1, 0) *
+                      torch.where(gt_depth[:, 0, 1:, :] > 0, 1, 0))
+
+            grad_clip = 0.01
+            grad_mask_x = torch.where(torch.abs(gt_grad_x) < grad_clip, 1, 0) * mask_x
+            grad_mask_x = grad_mask_x.bool()
+            grad_mask_y = torch.where(torch.abs(gt_grad_y) < grad_clip, 1, 0) * mask_y
+            grad_mask_y = grad_mask_y.bool()
+
+            pred_grad_x = pred_depth[:, 0, :, :-1] - pred_depth[:, 0, :, 1:]
+            pred_grad_y = pred_depth[:, 0, :-1, :] - pred_depth[:, 0, 1:, :]
+            loss_smooth = (F.l1_loss(pred_grad_x[grad_mask_x], gt_grad_x[grad_mask_x])
+                           + F.l1_loss(pred_grad_y[grad_mask_y], gt_grad_y[grad_mask_y])) * self.smooth_factor
+
+        else:
+            loss_smooth = torch.tensor(0.0)
+
+        # norm loss
+        if self.norm_factor > 0:
+            surf_normal = self.geometry_converter.batch_range2normal(input_coord)
+            render_normal = self.geometry_converter.batch_range2normal(rec_coord)
+            loss_normal_consistency = (1 - (render_normal * surf_normal).sum(dim=1)[:, 1:-1, 1:-1]).mean() * self.norm_factor
+
+        else:
+            loss_normal_consistency = torch.tensor(0.0)
+
         # overall reconstruction loss
         rec_loss = (pixel_rec_loss + mask_rec_loss + geo_rec_loss + perceptual_loss) / self.rec_scale
         nll_loss = rec_loss
-        nll_loss = torch.mean(nll_loss)
+        nll_loss = torch.mean(nll_loss) + loss_smooth + loss_normal_consistency
 
         ############# GAN #############
         disc_factor = 0. if global_step > self.discriminator_iter_start else self.disc_factor

@@ -165,3 +165,5 @@ scripts/ALTest
 
 models/layout/nuscenes/samples
 samples
+*.ini
+*.ipynb

@@ -41,7 +41,7 @@ model:
         attention_block_type: 'ObjectAwareCrossAttention'
 
     first_stage_config:
-      target: lidm.models.autoencoder.VQModelInterface
+      target: lidm.models.ae.autoencoder.VQModelInterface
       params:
         embed_dim: 8
         n_embed: 16384

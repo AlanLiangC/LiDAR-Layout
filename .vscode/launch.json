@@ -28,7 +28,7 @@
                 // "--eval"
 
                 // train autoencoder
-                "-b", "../configs/autoencoder/nuscenes/autoencoder_c2_p4.yaml",
+                "-b", "../configs/autoencoder/nuscenes/autoencoder_cube.yaml",
                 "-t",
                 "--gpus", "1",
                 "--batch_size", "1",

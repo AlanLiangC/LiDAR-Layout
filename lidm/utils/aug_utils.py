@@ -32,6 +32,10 @@ def get_camera_transform(config, split):
     transform = None
     return transform
 
+def mask_points_by_range(points, limit_range):
+    mask = (points[:, 0] >= limit_range[0]) & (points[:, 0] <= limit_range[3]) \
+           & (points[:, 1] >= limit_range[1]) & (points[:, 1] <= limit_range[4])
+    return mask
 
 def get_anno_transform(config, split):
     if config['keypoint_drop'] and split == 'train':

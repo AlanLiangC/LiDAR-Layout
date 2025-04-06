@@ -1,5 +1,10 @@
 import torch
 import numpy as np
+import fvdb
+# JIT
+from torch.utils.cpp_extension import load
+
+dvr = load("dvr", sources=["../lidm/models/ae/lib/dvr/dvr.cpp", "../lidm/models/ae/lib/dvr/dvr.cu"], verbose=True, extra_cuda_cflags=['-allow-unsupported-compiler'])
 
 def scale_range(range_img, depth_scale, log_scale=True):
     range_img = torch.where(range_img < 0, 0, range_img)
@@ -81,3 +86,28 @@ def range2feature_gpu(range_feature, mask, is_sh):
         feature = feature.view(N, 4, 16)
     return feature[mask]
 
+def point2voxel(batch, offset, scaler, input_grid):
+    '''
+    input:
+        points: [B,N,3]
+    return
+        voxel
+    '''
+    raw_points = batch['points_for_cube']
+    input_points = ((raw_points - offset) / scaler).float()
+    input_tindex = input_points.new_zeros([input_points.shape[0], input_points.shape[1]])
+    input_occupancy = dvr.init(input_points, input_tindex, input_grid) # N x T1 x H x L x W
+    ijks = []
+    for batch_idx in range(input_occupancy.shape[0]):
+        batch_occupancy = input_occupancy[batch_idx].squeeze().permute(2,1,0)
+        ijk = torch.nonzero(batch_occupancy == 1, as_tuple=False)
+        ijks.append(ijk)
+        
+    target_voxel_size = scaler[0,0,0].item()
+    grid = fvdb.sparse_grid_from_ijk(fvdb.JaggedTensor(ijks), voxel_sizes=target_voxel_size, origins=[target_voxel_size / 2.] * 3)
+    # xyz = grid.grid_to_world(grid.ijk.float()).jdata
+    # target_voxel_size = scaler[0,0,0].item()
+    # target_grid = fvdb.sparse_grid_from_points(
+    #         fvdb.JaggedTensor(xyz), voxel_sizes=target_voxel_size, origins=[target_voxel_size / 2.] * 3)
+    batch['INPUT_PC'] = grid
+    return batch

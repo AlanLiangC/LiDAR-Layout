@@ -90,19 +90,19 @@ class NUSC_CUBE_DATASET(Dataset):
                         coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
                         coors.append(coor_pad)
                 elif key in ['points_for_cube']:
-                    coors = []
-                    max_n_input_points = max([item.shape[0] for item in val])
-                    for i, coor in enumerate(val):
-                        coor_pad = np.pad(coor, ((0, max_n_input_points - coor.shape[0]), (0, 0)), mode='constant', constant_values=float("nan"))
-                        coors.append(coor_pad)
-                    ret[key] = np.stack(coors, axis=0)
                     # coors = []
-                    # if isinstance(val[0], list):
-                    #     val =  [i for item in val for i in item]
+                    # max_n_input_points = max([item.shape[0] for item in val])
                     # for i, coor in enumerate(val):
-                    #     coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
+                    #     coor_pad = np.pad(coor, ((0, max_n_input_points - coor.shape[0]), (0, 0)), mode='constant', constant_values=float("nan"))
                     #     coors.append(coor_pad)
-                    # ret[key] = np.concatenate(coors, axis=0)
+                    # ret[key] = np.stack(coors, axis=0)
+                    coors = []
+                    if isinstance(val[0], list):
+                        val =  [i for item in val for i in item]
+                    for i, coor in enumerate(val):
+                        coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
+                        coors.append(coor_pad)
+                    ret[key] = np.concatenate(coors, axis=0)
                 else:
                     ret[key] = np.stack(val, axis=0)
             except:

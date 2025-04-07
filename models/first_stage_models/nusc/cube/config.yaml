@@ -6,7 +6,7 @@ model:
     
     geoconfig:
       voxel_size: &voxel_size 0.4
-      point_cloud_range: &point_cloud_range [-70.0, -70.0, -4.5, 70.0, 70.0, 4.5]
+      point_cloud_range: &point_cloud_range [-70.0, -70.0, -70, 70.0, 70.0, 70]
       use_hash_tree: &use_hash_tree true
       tree_depth: &tree_depth 3
       use_fvdb_loader: &use_fvdb_loader true

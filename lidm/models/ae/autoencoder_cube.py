@@ -215,12 +215,12 @@ class CubeAEModel(pl.LightningModule):
         
         loss_sum = loss_dict.get_sum()
         self.log("train_loss/sum", loss_sum,
-                 prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+                 prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
         self.log("train_step", self.global_step,
-                 prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+                 prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
         if self.geoconfig.enable_anneal:
             self.log('anneal_kl_weight', self.loss.get_kl_weight(self.global_step),
-                 prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+                 prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
             
         self.log_dict(loss_dict)
         self.log_dict(metric_dict)

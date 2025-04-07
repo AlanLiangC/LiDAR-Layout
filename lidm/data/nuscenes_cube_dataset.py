@@ -24,7 +24,7 @@ class NUSC_CUBE_DATASET(Dataset):
             custom_path = 'v1.0-trainval'
             file_paths = [os.path.join(self.data_root, custom_path, x['filename']) 
                             for x in sample_data 
-                            if 'samples/LIDAR_TOP' in x['filename']]
+                            if 'sweeps/LIDAR_TOP' in x['filename']]
             self.data = sorted(file_paths)
         elif self.split == 'val':
             with open(os.path.join(self.data_root, 'v1.0-trainval/v1.0-mini/sample_data.json')) as f:
@@ -96,6 +96,13 @@ class NUSC_CUBE_DATASET(Dataset):
                         coor_pad = np.pad(coor, ((0, max_n_input_points - coor.shape[0]), (0, 0)), mode='constant', constant_values=float("nan"))
                         coors.append(coor_pad)
                     ret[key] = np.stack(coors, axis=0)
+                    # coors = []
+                    # if isinstance(val[0], list):
+                    #     val =  [i for item in val for i in item]
+                    # for i, coor in enumerate(val):
+                    #     coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
+                    #     coors.append(coor_pad)
+                    # ret[key] = np.concatenate(coors, axis=0)
                 else:
                     ret[key] = np.stack(val, axis=0)
             except:

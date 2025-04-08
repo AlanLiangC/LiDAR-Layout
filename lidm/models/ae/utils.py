@@ -110,7 +110,7 @@ def point2voxel(batch, offset, scaler, input_grid):
     xyzs = []
     for batch_idx in range(int(raw_points[:,0].max() + 1)):
         batch_mask = raw_points[:,0] == batch_idx
-        xyz = raw_points[batch_mask][:,1:] - offset[0]
+        xyz = raw_points[batch_mask][:,1:]
         xyzs.append(xyz)
     target_grid = fvdb.sparse_grid_from_points(
             fvdb.JaggedTensor(xyzs), voxel_sizes=target_voxel_size, origins=[target_voxel_size / 2.] * 3)

@@ -1,0 +1,94 @@
+model:
+  base_learning_rate: 4.5e-6
+  target: lidm.models.ae.autoencoder_cube.CubeAEModel
+  params:
+    monitor: val_step
+    
+    geoconfig:
+      voxel_size: &voxel_size 0.1
+      point_cloud_range: &point_cloud_range [-51.2, -51.2, -51.2, 51.2, 51.2, 51.2]
+      use_hash_tree: &use_hash_tree true
+      tree_depth: &tree_depth 3
+      use_fvdb_loader: &use_fvdb_loader true
+      enable_anneal: &enable_anneal false
+
+    edconfig:
+      c_dim: 32
+      use_input_intensity: false
+
+    unetconfig:
+      target: lidm.modules.xcube.sunet.StructPredictionNet
+      params:
+        cut_ratio: 16
+        with_normal_branch: &with_normal_branch false
+        with_semantic_branch: &with_semantic_branch false
+        in_channels: 32
+        num_blocks: *tree_depth
+        f_maps: 32
+        neck_dense_type: "UNCHANGED"
+        neck_bound: [128, 128, 32]        
+        num_res_blocks: 1
+        use_residual: false
+        order: "gcr"
+        is_add_dec: false
+        use_attention: false
+        use_checkpoint: false
+
+    lossconfig:
+      target: lidm.modules.losses.xcube_loss.Loss
+      params:
+        baseconfig:
+          use_hash_tree: *use_hash_tree
+          remain_h: false
+          with_normal_branch: *with_normal_branch
+          with_semantic_branch: *with_semantic_branch
+          with_color_branch: false
+          normalize_kld: true
+          enable_anneal: *enable_anneal
+          kl_weight: 0.3
+          kl_weight_max: 0.3
+          kl_weight_min: 1e-7
+          anneal_star_iter: 0
+          anneal_end_iter: 70000
+          voxel_size: *voxel_size
+          use_fvdb_loader: *use_fvdb_loader
+        supervision:
+          structure_weight: 20.0
+          normal_weight: 0.0
+          semantic_weight: 0.0
+          color_weight: 0.0
+
+data:
+  target: train_lidm.DataModuleFromConfig
+  params:
+    use_collate_fn: true
+    batch_size: 4
+    num_workers: 8
+    wrap: true
+    dataset:
+      point_cloud_range: *point_cloud_range
+    aug:
+      flip: true
+      rotate: true
+    train:
+      target: lidm.data.nuscenes_cube_dataset.NUSC_CUBE_DATASET
+      params:
+        split: 'train'
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
+        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+
+    validation:
+      target: lidm.data.nuscenes_cube_dataset.NUSC_CUBE_DATASET
+      params:
+        split: 'val'
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
+
+
+lightning:
+
+  trainer:
+    benchmark: true
+    accumulate_grad_batches: 2

@@ -590,8 +590,9 @@ if __name__ == "__main__":
             config.model.params.lossconfig.params.dataset_config = config.data.params.dataset
         model = instantiate_from_config(config.model)
 
+        project_name = f"lidar_diffusion_{dataset_name}" if opt.project is None else opt.project
         wandb.init(
-            project=f"lidar_diffusion_{dataset_name}")
+            project=project_name)
 
         # trainer and callbacks
         trainer_kwargs = dict()
@@ -601,7 +602,7 @@ if __name__ == "__main__":
             "wandb": {
                 "target": "pytorch_lightning.loggers.WandbLogger",
                 "params": {
-                    "project": f"lidar_diffusion_{dataset_name}",
+                    "project": project_name,
                     "entity": "hancyran",
                     "name": nowname,
                     "save_dir": logdir,

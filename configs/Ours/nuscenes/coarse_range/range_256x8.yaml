@@ -1,0 +1,86 @@
+model:
+  base_learning_rate: 4.5e-6
+  target: lidm.models.ae.autoencoder.VQModel
+  params:
+    monitor: val/rec_loss
+    embed_dim: 8
+    n_embed: 16384
+    lib_name: lidm
+    use_mask: False  # False
+    lossconfig:
+      target: lidm.modules.losses.vqperceptual.VQGeoLPIPSWithDiscriminator
+      params:
+        disc_conditional: false
+        disc_start: 1
+        disc_in_channels: 1
+        disc_num_layers: 1
+        disc_weight: 0.6  # 0.6
+        disc_version: v0  # v1
+        codebook_weight: 1
+        curve_length: 1
+        geo_factor: 0
+        mask_factor: 0  # 0.0
+        perceptual_factor: 0
+        perceptual_type: rangenet_dec
+
+    ddconfig:
+      double_z: false
+      z_channels: 8
+      in_channels: 1
+      out_ch: 1
+      ch: 64
+      ch_mult: [1,2,2,4]  # num_down = len(ch_mult)-1
+      strides: [[1,2],[1,2],[2,2]]
+      num_res_blocks: 2
+      attn_levels: []
+      dropout: 0.0
+
+
+data:
+  target: train_lidm.DataModuleFromConfig
+  params:
+    batch_size: 4
+    num_workers: 8
+    wrap: true
+    dataset:
+      size: [8, 256]
+      fov: [ 10,-30 ]
+      depth_range: [ 1.0,56.0 ]
+      depth_scale: 5.84  # np.log2(depth_max + 1)
+      log_scale: true
+      x_range: [ -51.2, 51.2 ]
+      y_range: [ -51.2, 51.2 ]
+      z_range: [ -3.0, 1.0 ]
+      resolution: 1
+      num_channels: 1
+      num_cats: 10
+      num_views: 2
+      num_sem_cats: 19
+      filtered_map_cats: [ ]
+    aug:
+      flip_w_box: false
+      rotate_w_box: false
+      flip: true
+      rotate: true
+      keypoint_drop: false
+      keypoint_drop_range: [ 5,20 ]
+      randaug: false
+    train:
+      target: lidm.data.nusc_dataset.nuScenesImageTrain
+      params:
+        condition_key: image
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        data_root: /data1/liangao/Dataset/openpcd_nuscenes
+    validation:
+      target: lidm.data.nusc_dataset.nuScenesImageValidation
+      params:
+        condition_key: image
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        data_root: /data1/liangao/Dataset/openpcd_nuscenes
+
+
+lightning:
+
+  trainer:
+    benchmark: true
+    accumulate_grad_batches: 2

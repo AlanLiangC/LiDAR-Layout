@@ -28,10 +28,10 @@
                 // "--eval"
 
                 // train autoencoder
-                "-b", "../configs/autoencoder/nuscenes/autoencoder_cube.yaml",
+                "-b", "../configs/Ours/nuscenes/coarse_range/range_256x8.yaml",
                 "-t",
                 "--gpus", "1",
-                "--batch_size", "4",
+                "--batch_size", "2",
                 "--num_workers", "1",
                 // "-r", "../models/first_stage_models/nusc/f_c2_p4/last.ckpt"
 

@@ -5,7 +5,7 @@ model:
     monitor: val_step
     
     geoconfig:
-      voxel_size: &voxel_size 0.4
+      voxel_size: &voxel_size 0.2
       point_cloud_range: &point_cloud_range [-70.0, -70.0, -70, 70.0, 70.0, 70]
       use_hash_tree: &use_hash_tree true
       tree_depth: &tree_depth 3
@@ -75,13 +75,17 @@ data:
       params:
         split: 'train'
         data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
         # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+
     validation:
       target: lidm.data.nuscenes_cube_dataset.NUSC_CUBE_DATASET
       params:
         split: 'val'
         data_root: /home/alan/AlanLiang/Dataset/Nuscenes
         # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
+
 
 lightning:
 

@@ -24,7 +24,7 @@ class NUSC_CUBE_DATASET(Dataset):
             custom_path = 'v1.0-trainval'
             file_paths = [os.path.join(self.data_root, custom_path, x['filename']) 
                             for x in sample_data 
-                            if 'samples/LIDAR_TOP' in x['filename']]
+                            if 'sweeps/LIDAR_TOP' in x['filename']]
             self.data = sorted(file_paths)
         elif self.split == 'val':
             with open(os.path.join(self.data_root, 'v1.0-trainval/v1.0-mini/sample_data.json')) as f:

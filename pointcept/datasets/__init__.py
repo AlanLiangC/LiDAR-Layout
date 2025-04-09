@@ -14,6 +14,7 @@ from .aeo import AEODataset
 # outdoor scene
 from .semantic_kitti import SemanticKITTIDataset
 from .nuscenes import NuScenesDataset
+from .nuscenes_cube_decode import NuScenesCubeDecodeDataset
 from .waymo import WaymoDataset
 
 # object

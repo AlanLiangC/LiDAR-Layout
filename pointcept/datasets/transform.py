@@ -4,7 +4,7 @@
 Author: Xiaoyang Wu (xiaoyang.wu.cs@gmail.com)
 Please cite our work if the code is helpful to you.
 """
-
+import fvdb
 import random
 import numbers
 import scipy
@@ -15,8 +15,8 @@ import numpy as np
 import torch
 import copy
 from collections.abc import Sequence, Mapping
-
 from pointcept.utils.registry import Registry
+from lidm.utils.lidar_utils import pcd2range
 
 TRANSFORMS = Registry("transforms")
 
@@ -71,7 +71,10 @@ class Collect(object):
         for name, keys in self.kwargs.items():
             name = name.replace("_keys", "")
             assert isinstance(keys, Sequence)
-            data[name] = torch.cat([data_dict[key].float() for key in keys], dim=1)
+            if isinstance(keys, tuple):
+                data[name] = torch.cat([data_dict[key].float() for key in keys], dim=1)
+            else:
+                data[name] = data_dict[keys].float()
         return data
 
 
@@ -179,6 +182,78 @@ class CenterShift(object):
             data_dict["coord"] -= shift
         return data_dict
 
+@TRANSFORMS.register_module()
+class FiltPoint(object):
+    def __init__(self, point_cloud_range=(-51.2, -51.2, -51.2, 51.2, 51.2, 51.2)):
+        self.point_cloud_range = point_cloud_range
+
+    def __call__(self, data_dict):
+        if "coord" in data_dict.keys():
+            points = data_dict['coord']
+            mask = (points[:, 0] >= self.point_cloud_range[0]) & (points[:, 0] <= self.point_cloud_range[3]) \
+                & (points[:, 1] >= self.point_cloud_range[1]) & (points[:, 1] <= self.point_cloud_range[4]) \
+                & (points[:, 2] >= self.point_cloud_range[2]) & (points[:, 2] <= self.point_cloud_range[5])
+            data_dict['coord'] = points[mask]
+        return data_dict
+
+@TRANSFORMS.register_module()
+class CoordConvert(object):
+    def __init__(self, voxel_size, mask=False, p=1):
+        self.voxel_size = voxel_size
+        self.mask = mask
+        self.p = p
+
+    def __call__(self, data_dict):
+        if "coord" in data_dict.keys():
+            target_grid = fvdb.sparse_grid_from_points(
+                    fvdb.JaggedTensor(torch.from_numpy(data_dict['coord'])), 
+                    voxel_sizes=self.voxel_size, 
+                    origins=[self.voxel_size / 2.] * 3)
+            coord = target_grid.grid_to_world(target_grid.ijk.float()).jdata
+            if self.mask:
+                points_num = coord.shape[0]
+                mask = torch.zeros(points_num, dtype=torch.float32)
+                indices = torch.randperm(points_num)[:int(points_num*self.p)]
+                mask.view(-1)[indices] = 1
+                coord = coord[mask>0]
+            data_dict['coord'] = coord.float().cpu().numpy()
+
+            return data_dict
+
+@TRANSFORMS.register_module()
+class ToRange(object):
+    def __init__(self, size, fov, depth_range, depth_scale, log_scale):
+        self.img_size = size
+        self.fov = fov
+        self.depth_range = depth_range
+        self.depth_scale = depth_scale
+        self.log_scale = log_scale
+        if self.log_scale:
+            self.depth_thresh = (np.log2(1./255. + 1) / self.depth_scale) * 2. - 1 + 1e-6
+        else:
+            self.depth_thresh = (1./255. / self.depth_scale) * 2. - 1 + 1e-6
+
+    def process_scan(self, range_img):
+        range_img = np.where(range_img < 0, 0, range_img)
+        if self.log_scale:
+            # log scale
+            range_img = np.log2(range_img + 0.0001 + 1)
+
+        range_img = range_img / self.depth_scale
+        range_img = range_img * 2. - 1.
+        range_img = np.clip(range_img, -1, 1)
+        range_img = np.expand_dims(range_img, axis=0)
+        # mask
+        range_mask = np.ones_like(range_img)
+        range_mask[range_img < self.depth_thresh] = -1
+        return range_img, range_mask
+
+    def __call__(self, data_dict):
+        if "coord" in data_dict.keys():
+            proj_range, _ = pcd2range(data_dict['coord'], self.img_size, self.fov, self.depth_range)
+            proj_range, _ = self.process_scan(proj_range)
+            data_dict['range_img'] = proj_range
+        return data_dict
 
 @TRANSFORMS.register_module()
 class RandomShift(object):

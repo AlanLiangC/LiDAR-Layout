@@ -197,6 +197,34 @@ class CheckpointSaver(HookBase):
                     ),
                 )
 
+@HOOKS.register_module()
+class CheckpointSaver_woEval(HookBase):
+    def __init__(self, save_freq=None):
+        self.save_freq = save_freq  # None or int, None indicate only save model last
+
+    def after_epoch(self):
+        if is_main_process():
+
+            filename = os.path.join(
+                self.trainer.cfg.save_path, "model", "model_last.pth"
+            )
+            self.trainer.logger.info("Saving checkpoint to: " + filename)
+            torch.save(
+                {
+                    "epoch": self.trainer.epoch + 1,
+                    "state_dict": self.trainer.model.state_dict(),
+                    "optimizer": self.trainer.optimizer.state_dict(),
+                    "scheduler": self.trainer.scheduler.state_dict(),
+                    "scaler": (
+                        self.trainer.scaler.state_dict()
+                        if self.trainer.cfg.enable_amp
+                        else None
+                    ),
+                    "best_metric_value": self.trainer.best_metric_value,
+                },
+                filename + ".tmp",
+            )
+            os.replace(filename + ".tmp", filename)
 
 @HOOKS.register_module()
 class CheckpointLoader(HookBase):

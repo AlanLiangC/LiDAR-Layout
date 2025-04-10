@@ -1,8 +1,6 @@
 import math
 import sys
 
-sys.path.append('./')
-
 import os, argparse, glob, datetime, yaml
 import torch
 from torch.utils.data import DataLoader
@@ -13,6 +11,8 @@ import joblib
 
 from omegaconf import OmegaConf
 from PIL import Image
+
+sys.path.append('../')
 
 from lidm.utils.misc_utils import instantiate_from_config, set_seed
 from lidm.utils.lidar_utils import range2pcd
@@ -193,7 +193,6 @@ def load_model(config, ckpt):
     del config.model.params.lossconfig
     model = load_model_from_config(config.model, pl_sd["state_dict"])
     return model, global_step
-
 
 def test_collate_fn(data):
     output = {}

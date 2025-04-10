@@ -24,13 +24,13 @@ model:
         num_head_channels: 32
         lib_name: lidm
     first_stage_config:
-      target: lidm.models.autoencoder.VQModelInterface
+      target: lidm.models.ae.autoencoder.VQModelInterface
       params:
         embed_dim: 8
         n_embed: 16384
         lib_name: lidm
         use_mask: True  # False
-        ckpt_path: models/first_stage_models/kitti/f_c2_p4/model.ckpt
+        ckpt_path: ../models/ours/nuscenes/coarse/range_ae/last.ckpt
         ddconfig:
           double_z: false
           z_channels: 8

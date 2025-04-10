@@ -35,12 +35,18 @@
                 // "--num_workers", "1",
                 // "-r", "../models/first_stage_models/nusc/f_c2_p4/last.ckpt"
 
-                // train lidar diffusion
-                // "-b", "../configs/lidar_diffusion/nuscenes/layout_cond_c2_p4.yaml",
-                // "-t",
-                // "--gpus", "1",
-                // "--batch_size", "1",
+                // eval vae
+                // "-d", "nuscenes",
+                // "-r", "../models/ours/nuscenes/coarse/range_ae/last.ckpt",
+                // "--batch_size", "2",
                 // "--num_workers", "1"
+
+                // train lidar diffusion
+                "-b", "../configs/Ours/nuscenes/coarse_range/range_uncond_diffusion_64x4.yaml",
+                "-t",
+                "--gpus", "1",
+                "--batch_size", "2",
+                "--num_workers", "1"
 
                 // sample lidar cond
                 // "-d", "nuscenes",
@@ -49,8 +55,8 @@
                 // "--eval"
 
                 // train dense decoder
-                "--config-file", "../configs/Ours/nuscenes/dense_decoder/gaus_10cm.py",
-                "--options", "save_path=./logs/dense_decoder_gaus_10cm", "batch_size=2", "num_worker=1"
+                // "--config-file", "../configs/Ours/nuscenes/dense_decoder/gaus_10cm.py",
+                // "--options", "save_path=./logs/dense_decoder_gaus_10cm", "batch_size=2", "num_worker=1"
             ]
 
         }

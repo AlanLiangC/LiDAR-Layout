@@ -2,9 +2,9 @@ import torch
 import numpy as np
 import fvdb
 # JIT
-from torch.utils.cpp_extension import load
+# from torch.utils.cpp_extension import load
 
-dvr = load("dvr", sources=["../lidm/models/ae/lib/dvr/dvr.cpp", "../lidm/models/ae/lib/dvr/dvr.cu"], verbose=True, extra_cuda_cflags=['-allow-unsupported-compiler'])
+# dvr = load("dvr", sources=["../lidm/models/ae/lib/dvr/dvr.cpp", "../lidm/models/ae/lib/dvr/dvr.cu"], verbose=True, extra_cuda_cflags=['-allow-unsupported-compiler'])
 
 def scale_range(range_img, depth_scale, log_scale=True):
     range_img = torch.where(range_img < 0, 0, range_img)

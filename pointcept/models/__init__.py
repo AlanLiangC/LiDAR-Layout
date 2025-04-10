@@ -24,3 +24,4 @@ from .point_group import *
 from .masked_scene_contrast import *
 from .point_prompt_training import *
 from .sonata import *
+from .gaussians import *

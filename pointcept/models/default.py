@@ -99,17 +99,14 @@ class DenseDecoderV0(nn.Module):
         num_classes,
         backbone_out_channels,
         backbone=None,
+        head=None,
         criteria=None,
         freeze_backbone=False,
     ):
         super().__init__()
-        self.seg_head = (
-            nn.Linear(backbone_out_channels, num_classes)
-            if num_classes > 0
-            else nn.Identity()
-        )
         self.backbone = build_model(backbone)
-        self.criteria = build_criteria(criteria)
+        self.head = build_model(head)
+        self.criteria = build_model(criteria)
         self.freeze_backbone = freeze_backbone
         if self.freeze_backbone:
             for p in self.backbone.parameters():
@@ -127,26 +124,17 @@ class DenseDecoderV0(nn.Module):
                 inverse = point.pop("pooling_inverse")
                 parent.feat = torch.cat([parent.feat, point.feat[inverse]], dim=-1)
                 point = parent
-            feat = point.feat
-        else:
-            feat = point
-        seg_logits = self.seg_head(feat)
+
+        point = self.head.decode(point)
         return_dict = dict()
-        if return_point:
-            # PCA evaluator parse feat and coord in point
-            return_dict["point"] = point
-        # train
+
         if self.training:
-            loss = self.criteria(seg_logits, input_dict["segment"])
+            loss = self.criteria(point)
             return_dict["loss"] = loss
-        # eval
-        elif "segment" in input_dict.keys():
-            loss = self.criteria(seg_logits, input_dict["segment"])
-            return_dict["loss"] = loss
-            return_dict["seg_logits"] = seg_logits
         # test
         else:
-            return_dict["seg_logits"] = seg_logits
+            return_dict["pred_raydrop"] = point.pred_raydrop
+            return_dict["pred_range"] = point.pred_range
         return return_dict
 
 @MODELS.register_module()

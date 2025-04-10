@@ -2,9 +2,9 @@ _base_ = ["./_base_/default_runtime.py"]
 
 # misc custom setting
 batch_size = 12  # bs: total bs in all gpus
-mix_prob = 0.8
+mix_prob = 0
 empty_cache = False
-enable_amp = True
+enable_amp = False
 
 # model settings
 model = dict(
@@ -44,10 +44,13 @@ model = dict(
         pdnorm_affine=True,
         pdnorm_conditions=("nuScenes", "SemanticKITTI", "Waymo"),
     ),
-    criteria=[
-        dict(type="CrossEntropyLoss", loss_weight=1.0, ignore_index=-1),
-        dict(type="LovaszLoss", mode="multiclass", loss_weight=1.0, ignore_index=-1),
-    ],
+    head=dict(
+        type="GSDecoder",
+        feat_dim=64,
+    ),
+    criteria=dict(
+        type="GSLoss",
+    ),
 )
 
 # scheduler settings
@@ -66,7 +69,8 @@ param_dicts = [dict(keyword="block", lr=0.0002)]
 
 # dataset settings
 dataset_type = "NuScenesCubeDecodeDataset"
-data_root = "/home/alan/AlanLiang/Dataset/pointcept_nuscenes"
+# data_root = "/home/alan/AlanLiang/Dataset/pointcept_nuscenes"
+data_root = "/mnt/scratch/e/e1493786/AlanLiang/Dataset/pointcept_nuscenes"
 ignore_index = -1
 names = [
     "barrier",
@@ -97,7 +101,9 @@ data = dict(
         split="train",
         data_root=data_root,
         transform=[
-            dict(type="FiltPoint", point_cloud_range=(-51.2, -51.2, -51.2, 51.2, 51.2, 51.2)),
+            dict(type="FiltPoint", 
+                 point_cloud_range=(-51.2, -51.2, -51.2, 51.2, 51.2, 51.2),
+                 range_filter = [1.0, 56.0]),
             dict(type="RandomRotate", angle=[-1, 1], axis="z", center=[0, 0, 0], p=0.5),
             dict(type="RandomFlip", p=0.5),
             dict(
@@ -107,7 +113,7 @@ data = dict(
                 depth_range=[ 1.0,56.0 ],
                 depth_scale=5.84,  # np.log2(depth_max + 1)
                 log_scale=True),
-            dict(type="CoordConvert", voxel_size=0.1, mask=True, p=0.9),
+            dict(type="CoordConvert", voxel_size=0.1, mask=True, p=0.8),
             dict(
                 type="GridSample",
                 grid_size=0.1,
@@ -118,7 +124,7 @@ data = dict(
             dict(type="ToTensor"),
             dict(
                 type="Collect",
-                keys=("coord", "grid_coord", "range_img"),
+                keys=("coord", "grid_coord", "range_img", "ray_drop"),
                 feat_keys=("coord"))
         ],
         test_mode=False,
@@ -148,7 +154,7 @@ data = dict(
             dict(type="ToTensor"),
             dict(
                 type="Collect",
-                keys=("coord", "grid_coord", "range_img"),
+                keys=("coord", "grid_coord", "range_img", "ray_drop"),
                 feat_keys=("coord"))
         ],
         test_mode=False,
@@ -178,7 +184,7 @@ data = dict(
             dict(type="ToTensor"),
             dict(
                 type="Collect",
-                keys=("coord", "grid_coord", "range_img"),
+                keys=("coord", "grid_coord", "range_img", "ray_drop"),
                 feat_keys=("coord"))
         ],
         test_mode=False,

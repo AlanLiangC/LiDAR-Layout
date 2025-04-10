@@ -184,8 +184,9 @@ class CenterShift(object):
 
 @TRANSFORMS.register_module()
 class FiltPoint(object):
-    def __init__(self, point_cloud_range=(-51.2, -51.2, -51.2, 51.2, 51.2, 51.2)):
+    def __init__(self, point_cloud_range=(-51.2, -51.2, -51.2, 51.2, 51.2, 51.2), range_filter=None):
         self.point_cloud_range = point_cloud_range
+        self.range_filter = range_filter
 
     def __call__(self, data_dict):
         if "coord" in data_dict.keys():
@@ -193,7 +194,13 @@ class FiltPoint(object):
             mask = (points[:, 0] >= self.point_cloud_range[0]) & (points[:, 0] <= self.point_cloud_range[3]) \
                 & (points[:, 1] >= self.point_cloud_range[1]) & (points[:, 1] <= self.point_cloud_range[4]) \
                 & (points[:, 2] >= self.point_cloud_range[2]) & (points[:, 2] <= self.point_cloud_range[5])
-            data_dict['coord'] = points[mask]
+            points = points[mask]
+            if self.range_filter is not None:
+                depth = np.linalg.norm(points, 2, axis=1)
+                mask = np.logical_and(depth > self.range_filter[0], depth < self.range_filter[1])
+                points = points[mask]
+
+            data_dict['coord'] = points
         return data_dict
 
 @TRANSFORMS.register_module()
@@ -245,14 +252,15 @@ class ToRange(object):
         range_img = np.expand_dims(range_img, axis=0)
         # mask
         range_mask = np.ones_like(range_img)
-        range_mask[range_img < self.depth_thresh] = -1
+        range_mask[range_img < self.depth_thresh] = 0
         return range_img, range_mask
 
     def __call__(self, data_dict):
         if "coord" in data_dict.keys():
             proj_range, _ = pcd2range(data_dict['coord'], self.img_size, self.fov, self.depth_range)
-            proj_range, _ = self.process_scan(proj_range)
+            proj_range, ray_drop = self.process_scan(proj_range)
             data_dict['range_img'] = proj_range
+            data_dict['ray_drop'] = ray_drop
         return data_dict
 
 @TRANSFORMS.register_module()

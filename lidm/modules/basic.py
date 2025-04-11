@@ -221,6 +221,10 @@ def extract_into_tensor(a, t, x_shape):
     out = a.gather(-1, t)
     return out.reshape(b, *((1,) * (len(x_shape) - 1)))
 
+def extract_into_sparse_tensor(a, t, x_shape):
+    out = a.gather(-1, t)
+    out = out.unsqueeze(-1)
+    return out
 
 def checkpoint(func, inputs, params, flag):
     """

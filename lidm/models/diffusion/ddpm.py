@@ -8,6 +8,8 @@ https://github.com/CompVis/taming-transformers
 
 import torch
 import torch.nn as nn
+import fvdb.nn as fvnn
+from fvdb.nn import VDBTensor
 import numpy as np
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import LambdaLR
@@ -457,7 +459,7 @@ class LatentDiffusion(DDPM):
         if not scale_by_std:
             self.scale_factor = scale_factor
         else:
-            self.register_buffer('scale_factor', torch.tensor(scale_factor))
+            self.register_buffer('scale_factor', torch.tensor(scale_factor).float())
         self.instantiate_first_stage(first_stage_config)
         self.instantiate_cond_stage(cond_stage_config)
         self.cond_stage_forward = cond_stage_forward
@@ -546,6 +548,9 @@ class LatentDiffusion(DDPM):
             z = encoder_posterior.sample()
         elif isinstance(encoder_posterior, torch.Tensor):
             z = encoder_posterior
+        elif isinstance(encoder_posterior, VDBTensor):
+            latent_data = encoder_posterior.feature.jdata * self.scale_factor
+            return fvnn.VDBTensor(encoder_posterior.grid, encoder_posterior.grid.jagged_like(latent_data))
         else:
             raise NotImplementedError(f"encoder_posterior of type '{type(encoder_posterior)}' not yet implemented")
         return self.scale_factor * z
@@ -2332,43 +2337,3 @@ class DiffusionWrapper(pl.LightningModule):
             raise NotImplementedError()
 
         return out
-
-class LayoutDiffusionWrapper(pl.LightningModule):
-    def __init__(self, diff_model_config, conditioning_key):
-        super().__init__()
-        self.diffusion_model = instantiate_from_config(diff_model_config)
-        self.conditioning_key = conditioning_key
-        assert self.conditioning_key in [None, 'concat', 'crossattn', 'hybrid', 'adm']
-
-    def forward(self, data, obj_embed, triples, t, condition_cross):
-        B, D = data.shape
-        assert self.conditioning_key == 'crossattn'
-        out = self.diffusion_model(data, obj_embed, triples, t, context=condition_cross)
-        out = out.squeeze(-1)
-        assert out.shape == torch.Size([B, D])
-
-        return out
-
-class Layout2ImgDiffusion(LatentDiffusion):
-    def __init__(self, cond_stage_key, *args, **kwargs):
-        assert cond_stage_key in ['bbox', 'center'], 'Layout2ImgDiffusion only for cond_stage_key="bbox" or "center"'
-        super().__init__(cond_stage_key=cond_stage_key, *args, **kwargs)
-
-    def log_images(self, batch, N=8, dset=None, *args, **kwargs):
-        logs = super().log_images(batch=batch, N=N, *args, **kwargs)
-
-        key = 'train' if self.training else 'validation'
-        if dset is None:
-            dset = self.trainer.datamodule.datasets[key].data
-        mapper = dset.conditional_builders[self.cond_stage_key]
-        H, W = batch['image'].shape[2:]
-
-        bbox_imgs = []
-        map_fn = lambda catno: dset.get_textual_label_for_category_id(catno)
-        for tknzd_bbox in batch[self.cond_stage_key][:N]:
-            bboximg = mapper.plot(tknzd_bbox.detach().cpu(), map_fn, (W, H))
-            bbox_imgs.append(bboximg)
-
-        cond_img = torch.stack(bbox_imgs, dim=0)
-        logs['bbox_image'] = cond_img
-        return logs

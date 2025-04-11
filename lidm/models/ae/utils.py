@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import fvdb
+from torch.autograd import Variable
 # JIT
 # from torch.utils.cpp_extension import load
 
@@ -120,3 +121,8 @@ def point2voxel(batch, offset, scaler, input_grid):
     #         fvdb.JaggedTensor([ijk.float() for ijk in xyzs]), voxel_sizes=target_voxel_size, origins=[target_voxel_size / 2.] * 3)
     batch['INPUT_PC'] = target_grid
     return batch
+
+def reparametrize(mu, logvar):
+    std = logvar.div(2).exp()
+    eps = Variable(std.data.new(std.size()).normal_())
+    return mu + std*eps

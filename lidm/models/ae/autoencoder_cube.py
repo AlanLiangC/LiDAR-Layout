@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from ...modules.ema import LitEma
 from ...utils.misc_utils import instantiate_from_config
 from ...modules.xcube.cube_base_encoder import Encoder
-from .utils import point2voxel
+from .utils import point2voxel, reparametrize
 
 class CubeAEModel(pl.LightningModule):
     def __init__(self,
@@ -307,3 +307,30 @@ class CubeAEModel(pl.LightningModule):
         x = F.conv2d(x, weight=self.colorize)
         x = 2. * (x - x.min()) / (x.max() - x.min()) - 1.
         return x
+    
+    @torch.no_grad()
+    def _encode(self, batch, use_mode=False):
+        batch = self.get_input(batch)
+        input_grid = batch['input_grid']
+        hash_tree = batch['hash_tree']
+
+        unet_feat = self.encoder(input_grid, batch)
+        unet_feat = fvnn.VDBTensor(input_grid, input_grid.jagged_like(unet_feat))
+        _, x, mu, log_sigma = self.unet.encode(unet_feat, hash_tree=hash_tree)
+        if use_mode:
+            sparse_feature = mu
+        else:
+            sparse_feature = reparametrize(mu, log_sigma)
+        
+        return fvnn.VDBTensor(x.grid, x.grid.jagged_like(sparse_feature))
+    
+class CubeModelInterface(CubeAEModel):
+    def __init__(self, monitor=None, geoconfig=None, edconfig=None, unetconfig=None, 
+                 lossconfig=None, ckpt_path=None, ignore_keys=[], scheduler_config=None, 
+                 lr_g_factor=1, use_ema=False, **kwargs):
+        super().__init__(monitor, geoconfig, edconfig, unetconfig, lossconfig, ckpt_path, 
+                         ignore_keys, scheduler_config, lr_g_factor, use_ema, **kwargs)
+        
+    @torch.no_grad()
+    def encode(self, batch):
+        return self._encode(batch, use_mode=False)

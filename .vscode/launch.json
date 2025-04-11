@@ -42,7 +42,7 @@
                 // "--num_workers", "1"
 
                 // train lidar diffusion
-                "-b", "../configs/Ours/nuscenes/coarse_range/range_uncond_diffusion_64x4.yaml",
+                "-b", "../configs/Ours/nuscenes/refine_voxel/voxel_uncond_diffusion_256.yaml",
                 "-t",
                 "--gpus", "1",
                 "--batch_size", "2",

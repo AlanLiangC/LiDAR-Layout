@@ -33,9 +33,9 @@ class GaussianLoss(nn.Module):
         # ------------------------ raydrop grad loss -------------------------#
         pred_raydrop_grad_x = torch.abs(pred_ray_drop[:, :, :-1] - pred_ray_drop[:, :, 1:])
         gt_raydrop_grad_x = torch.abs(gt_ray_drop[:, :, :-1] - gt_ray_drop[:, :, 1:])
-        grad_loss = self.l1_loss(pred_raydrop_grad_x*gt_raydrop_grad_x, gt_raydrop_grad_x)
+        raydrop_grad_loss = self.l1_loss(pred_raydrop_grad_x*gt_raydrop_grad_x, gt_raydrop_grad_x)
 
 
-        loss = raydrop_loss + depth_loss + grad_loss
+        loss = raydrop_loss + depth_loss + grad_loss + raydrop_grad_loss
 
         return loss

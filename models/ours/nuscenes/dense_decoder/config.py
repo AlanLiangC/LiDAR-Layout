@@ -5,6 +5,8 @@ batch_size = 12  # bs: total bs in all gpus
 mix_prob = 0
 empty_cache = False
 enable_amp = False
+save_path="./logs/dense_decoder_gaus_10cm"
+weight="../models/ours/nuscenes/dense_decoder/model_last.pth"
 
 # model settings
 model = dict(
@@ -54,8 +56,8 @@ model = dict(
 )
 
 # scheduler settings
-epoch = 70
-eval_epoch = 70
+epoch = 50
+eval_epoch = 50
 optimizer = dict(type="AdamW", lr=0.002, weight_decay=0.005)
 scheduler = dict(
     type="OneCycleLR",
@@ -69,8 +71,8 @@ param_dicts = [dict(keyword="block", lr=0.0002)]
 
 # dataset settings
 dataset_type = "NuScenesCubeDecodeDataset"
-# data_root = "/home/alan/AlanLiang/Dataset/pointcept_nuscenes"
-data_root = "/mnt/scratch/e/e1493786/AlanLiang/Dataset/pointcept_nuscenes"
+data_root = "/home/alan/AlanLiang/Dataset/pointcept_nuscenes"
+# data_root = "/mnt/scratch/e/e1493786/AlanLiang/Dataset/pointcept_nuscenes"
 ignore_index = -1
 names = [
     "barrier",
@@ -145,12 +147,12 @@ data = dict(
                 depth_range=[ 1.0,56.0 ],
                 depth_scale=5.84,  # np.log2(depth_max + 1)
                 log_scale=True),
-            dict(type="CoordConvert", voxel_size=0.1, mask=True, p=0.9),
+            dict(type="CoordConvert", voxel_size=0.1, mask=True, p=0.8),
             dict(
                 type="GridSample",
                 grid_size=0.1,
                 hash_type="fnv",
-                mode="test",
+                mode="train",
                 return_grid_coord=True,
             ),
             dict(type="ToTensor"),
@@ -177,12 +179,12 @@ data = dict(
                 depth_range=[ 1.0,56.0 ],
                 depth_scale=5.84,  # np.log2(depth_max + 1)
                 log_scale=True),
-            dict(type="CoordConvert", voxel_size=0.1, mask=True, p=0.9),
+            dict(type="CoordConvert", voxel_size=0.1, mask=True, p=0.8),
             dict(
                 type="GridSample",
                 grid_size=0.1,
                 hash_type="fnv",
-                mode="test",
+                mode="train",
                 return_grid_coord=True,
             ),
             dict(type="ToTensor"),
@@ -206,3 +208,5 @@ hooks = [
     dict(type="CheckpointSaver_woEval", save_freq=None),
     # dict(type="PreciseEvaluator", test_last=False),
 ]
+
+inference = dict(type="Inferencer")

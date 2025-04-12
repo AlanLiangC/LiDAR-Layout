@@ -12,7 +12,7 @@ import torch
 import math
 from diff_lidargs_surfel_rasterization import GaussianRasterizationSettings, GaussianRasterizer
 
-def generate_neural_gaussians(pc , visible_mask=None, is_training=False):
+def generate_neural_gaussians(pc , visible_mask=None):
     ## view frustum filtering for acceleration    
     if visible_mask is None:
         visible_mask = torch.ones(pc.get_anchor.shape[0], dtype=torch.bool, device = pc.get_anchor.device)
@@ -32,10 +32,7 @@ def generate_neural_gaussians(pc , visible_mask=None, is_training=False):
     scaling = torch.clamp_max(scaling, max=0.1)
     rot = pc.get_rotation[mask]
 
-    if is_training:
-        return xyz, color, opacity, scaling, rot, neural_opacity, mask
-    else:
-        return xyz, color, opacity, scaling, rot
+    return xyz, color, opacity, scaling, rot, neural_opacity, mask
 
 
 def render(viewpoint_camera, pc, debug, bg_color : torch.Tensor, scaling_modifier = 1.0, visible_mask=None, retain_grad=True):
@@ -43,13 +40,8 @@ def render(viewpoint_camera, pc, debug, bg_color : torch.Tensor, scaling_modifie
     Render the scene. 
     
     Background tensor (bg_color) must be on GPU!
-    """
-    is_training = pc.get_mlp.training
-        
-    if is_training:
-        xyz, color, opacity, scaling, rot, neural_opacity, mask = generate_neural_gaussians(pc, visible_mask, is_training=is_training)
-    else:
-        xyz, color, opacity, scaling, rot = generate_neural_gaussians(viewpoint_camera, pc, visible_mask, is_training=is_training)
+    """        
+    xyz, color, opacity, scaling, rot, neural_opacity, mask = generate_neural_gaussians(pc, visible_mask)
 
     # Create zero tensor. We will use it to make pytorch return gradients of the 2D (screen-space) means
     screenspace_points = torch.zeros((xyz.shape[0], 4), dtype=xyz.dtype, requires_grad=True, device="cuda") + 0

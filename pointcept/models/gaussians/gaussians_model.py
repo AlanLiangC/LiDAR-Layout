@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 from pointcept.models.builder import MODELS
+from lidm.models.ae.utils import range2pcd_gpu
 from .utils.general_utils import build_scaling_rotation, strip_symmetric, inverse_sigmoid
 from .utils.graphics_utils import get_beam_inclinations
 from .render import render
@@ -215,5 +216,26 @@ class GaussianModel(nn.Module):
 
         point.pred_range = torch.cat(depth_list, dim=0)
         point.pred_ray_drop = torch.cat(ray_drop_list, dim=0)
+
+        if not self.training:
+            point.pred_range = torch.where(point.pred_ray_drop > 0.5, point.pred_range, -1)
+            ray_drop = torch.where(point.pred_ray_drop > 0.5, 1, 0)
+            point.pred_ray_drop = ray_drop
+
+            convert_points_list = []
+            gt_points_list = []
+
+            for batch_idx in range(batch_size):
+                pred_range = (torch.clip(point.pred_range[batch_idx], -1., 1.) + 1.) / 2.
+                convert_points, _ = range2pcd_gpu(pred_range, fov=[10, -30], depth_range=[1.0,56.0], log_scale=True, depth_scale=5.84)
+                convert_points_list.append(convert_points)
+                
+                range_img = point.range_img[batch_idx]
+                range_img = (torch.clip(range_img, -1., 1.) + 1.) / 2.
+                convert_points, _ = range2pcd_gpu(range_img, fov=[10, -30], depth_range=[1.0,56.0], log_scale=True, depth_scale=5.84)
+                gt_points_list.append(convert_points)
+
+            point.convert_points = convert_points_list
+            point.gt_points = gt_points_list
 
         return point

@@ -22,6 +22,20 @@ class GaussianLoss(nn.Module):
         pred_depth = point.pred_range * gt_ray_drop
         depth_loss = self.l1_loss(pred_depth, gt_depth)
 
-        loss = raydrop_loss + depth_loss
+        # ------------------------ depth grad loss -------------------------#
+        pred_grad_x = torch.abs(pred_depth[:, :, :-1] - pred_depth[:, :, 1:])
+        gt_grad_x = torch.abs(gt_depth[:, :, :-1] - gt_depth[:, :, 1:])
+        grad_clip_x = 0.01
+        grad_mask_x = torch.where(gt_grad_x < grad_clip_x, 1, 0)
+        mask_dx = gt_ray_drop[:, :, :-1] * grad_mask_x
+        grad_loss = self.l1_loss(pred_grad_x * mask_dx, gt_grad_x * mask_dx)
+
+        # ------------------------ raydrop grad loss -------------------------#
+        pred_raydrop_grad_x = torch.abs(pred_ray_drop[:, :, :-1] - pred_ray_drop[:, :, 1:])
+        gt_raydrop_grad_x = torch.abs(gt_ray_drop[:, :, :-1] - gt_ray_drop[:, :, 1:])
+        grad_loss = self.l1_loss(pred_raydrop_grad_x*gt_raydrop_grad_x, gt_raydrop_grad_x)
+
+
+        loss = raydrop_loss + depth_loss + grad_loss
 
         return loss

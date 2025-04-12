@@ -133,8 +133,13 @@ class DenseDecoderV0(nn.Module):
             return_dict["loss"] = loss
         # test
         else:
-            return_dict["pred_raydrop"] = point.pred_raydrop
+            return_dict["gt_raydrop"] = point.ray_drop
+            return_dict["gt_range"] = point.range_img
+            return_dict["pred_raydrop"] = point.pred_ray_drop
             return_dict["pred_range"] = point.pred_range
+            return_dict["pred_convert_points"] = point.convert_points
+            return_dict["gt_convert_points"] = point.gt_points
+
         return return_dict
 
 @MODELS.register_module()

@@ -170,3 +170,4 @@ samples
 imgui.ini
 ALTest
 *.pth
+model_last.pth

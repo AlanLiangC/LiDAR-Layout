@@ -57,6 +57,9 @@ class NUSC_CUBE_DATASET(Dataset):
 
         mask = mask_points_by_range(sweep, self.point_cloud_range)
         batch['points_for_cube'] = sweep[mask]
+        if np.all(sweep[mask] == 0):
+            new_index = np.random.randint(self.__len__())
+            return self.__getitem__(new_index)
         return batch
     
     @staticmethod

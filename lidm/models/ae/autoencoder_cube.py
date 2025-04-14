@@ -178,9 +178,9 @@ class CubeAEModel(pl.LightningModule):
             if depth == 0:
                 hash_tree[depth] = input_grid
             else:
-                hash_tree[depth] = fvdb.sparse_grid_from_nearest_voxels_to_points(input_xyz, 
-                                                                                  voxel_sizes=voxel_size, 
-                                                                                  origins=origins)
+                hash_tree[depth] = fvdb.sparse_grid_from_points(input_xyz, 
+                                                                voxel_sizes=voxel_size, 
+                                                                origins=origins)
         return hash_tree
 
     def get_input(self, batch):
@@ -298,6 +298,8 @@ class CubeAEModel(pl.LightningModule):
         res, output_x, _ = self.unet(unet_feat, hash_tree)
         log['gt_xyz'] = input_grid.grid_to_world(input_grid.ijk.float()).jdata.cpu().numpy()
         log['pred_xyz'] = output_x.grid.grid_to_world(output_x.grid[0].ijk.float()).jdata.cpu().numpy()
+        latend_xyz = res.structure_grid[2]
+        log['latend_xyz'] = latend_xyz.grid_to_world(latend_xyz.ijk.float()).jdata.cpu().numpy()
         return log
 
     def to_rgb(self, x):

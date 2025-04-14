@@ -238,6 +238,7 @@ class DataModuleFromConfig(pl.LightningDataModule):
         return DataLoader(self.datasets["train"], batch_size=self.batch_size,
                           num_workers=self.num_workers, shuffle=False if is_iterable_dataset else True,
                           worker_init_fn=init_fn,
+                          drop_last=True,
                           collate_fn=collate_fn)
 
     def _val_dataloader(self, shuffle=False):

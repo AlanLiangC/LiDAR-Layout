@@ -8,7 +8,9 @@ import torch.nn.functional as F
 from contextlib import contextmanager
 from ...modules.ema import LitEma
 from ...utils.misc_utils import instantiate_from_config
-from ...modules.xcube.cube_base_encoder import Encoder
+# from ...modules.xcube.cube_base_encoder import Encoder
+from ...modules.xcube.cube_encoder_w_pt import Encoder
+
 from .utils import point2voxel, reparametrize
 
 class CubeAEModel(pl.LightningModule):

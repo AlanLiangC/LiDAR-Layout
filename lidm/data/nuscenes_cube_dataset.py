@@ -60,6 +60,7 @@ class NUSC_CUBE_DATASET(Dataset):
         if np.all(sweep[mask] == 0):
             new_index = np.random.randint(self.__len__())
             return self.__getitem__(new_index)
+        batch['offset'] = batch['points_for_cube'].shape[0]
         return batch
     
     @staticmethod
@@ -85,6 +86,9 @@ class NUSC_CUBE_DATASET(Dataset):
                     ret[key] = batch_gt_boxes3d
                 elif key in ['reproj']:
                     ret[key] = val
+                # elif key in ['offset']:
+                #     ret[key] = np.cumsum(np.array(val))
+
                 elif key in ['points', 'voxel_coords']:
                     coors = []
                     if isinstance(val[0], list):
@@ -93,12 +97,6 @@ class NUSC_CUBE_DATASET(Dataset):
                         coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
                         coors.append(coor_pad)
                 elif key in ['points_for_cube']:
-                    # coors = []
-                    # max_n_input_points = max([item.shape[0] for item in val])
-                    # for i, coor in enumerate(val):
-                    #     coor_pad = np.pad(coor, ((0, max_n_input_points - coor.shape[0]), (0, 0)), mode='constant', constant_values=float("nan"))
-                    #     coors.append(coor_pad)
-                    # ret[key] = np.stack(coors, axis=0)
                     coors = []
                     if isinstance(val[0], list):
                         val =  [i for item in val for i in item]

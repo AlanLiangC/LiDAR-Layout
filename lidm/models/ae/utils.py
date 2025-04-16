@@ -97,29 +97,23 @@ def point2voxel(batch, offset, scaler, input_grid):
     target_voxel_size = float(scaler[0,0,0])
     raw_points = batch['points_for_cube']
 
-    # input_points = ((raw_points - offset) / scaler).float()
-    # input_tindex = input_points.new_zeros([input_points.shape[0], input_points.shape[1]])
-    # input_occupancy = dvr.init(input_points, input_tindex, input_grid) # N x T1 x H x L x W
-
-    # xyzs = []
-    # for batch_idx in range(input_occupancy.shape[0]):
-    #     batch_occupancy = input_occupancy[batch_idx].squeeze().permute(2,1,0)
-    #     ijk = torch.nonzero(batch_occupancy == 1, as_tuple=False)
-    #     # xyz = ijk.float() * scaler[0] + offset[0] + scaler[0]/2
-    #     xyzs.append(ijk)
-
     xyzs = []
     for batch_idx in range(int(raw_points[:,0].max() + 1)):
         batch_mask = raw_points[:,0] == batch_idx
         xyz = raw_points[batch_mask][:,1:]
         xyzs.append(xyz)
+
     target_grid = fvdb.sparse_grid_from_points(
             fvdb.JaggedTensor(xyzs), voxel_sizes=target_voxel_size, origins=[target_voxel_size / 2.] * 3)
-    # target_grid = fvdb.sparse_grid_from_ijk(
-    #         fvdb.JaggedTensor(xyzs), voxel_sizes=target_voxel_size, origins=[target_voxel_size / 2.] * 3)
-    # temp_grid = fvdb.sparse_grid_from_points(
-    #         fvdb.JaggedTensor([ijk.float() for ijk in xyzs]), voxel_sizes=target_voxel_size, origins=[target_voxel_size / 2.] * 3)
     batch['INPUT_PC'] = target_grid
+
+    offset = []
+    for batch_idx in range(int(raw_points[:,0].max() + 1)):
+        bach_num = (target_grid.jidx==batch_idx).sum()
+        offset.append(bach_num)
+
+    offset = torch.cumsum(torch.Tensor(offset), dim=0).to(raw_points.device)
+    batch['offset'] = offset.long()
     return batch
 
 def reparametrize(mu, logvar):

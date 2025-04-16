@@ -28,7 +28,7 @@
                 // "--eval"
 
                 // train autoencoder
-                "-b", "../configs/Ours/nuscenes/refine_voxel/voxel_1024.yaml",
+                "-b", "../configs/Ours/nuscenes/refine_voxel/voxel_1024_pt.yaml",
                 "-t",
                 "--gpus", "1",
                 "--batch_size", "2",

@@ -69,8 +69,8 @@ param_dicts = [dict(keyword="block", lr=0.0002)]
 
 # dataset settings
 dataset_type = "NuScenesCubeDecodeDataset"
-# data_root = "/home/alan/AlanLiang/Dataset/pointcept_nuscenes"
-data_root = "/mnt/scratch/e/e1493786/AlanLiang/Dataset/pointcept_nuscenes"
+data_root = "/home/alan/AlanLiang/Dataset/pointcept_nuscenes"
+# data_root = "/mnt/scratch/e/e1493786/AlanLiang/Dataset/pointcept_nuscenes"
 ignore_index = -1
 names = [
     "barrier",

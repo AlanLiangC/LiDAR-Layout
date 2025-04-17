@@ -13,7 +13,61 @@ import fvdb
 import fvdb.nn as fvnn
 import numpy as np
 from .utils import TorchLossMeter
-    
+
+class Class0FocalLoss(nn.Module):
+    def __init__(self, alpha=0.75, gamma=2.0, reduction='mean'):
+        """
+        Focal Loss that emphasizes class 0.
+        
+        Args:
+            alpha (float): Weighting factor for class 0 (0 < alpha < 1). Higher values
+                          put more emphasis on class 0. Default: 0.75.
+            gamma (float): Focusing parameter (gamma >= 0). Higher values put more
+                          focus on hard-to-classify examples. Default: 2.0.
+            reduction (str): Specifies the reduction to apply to the output:
+                            'none' | 'mean' | 'sum'. Default: 'mean'.
+        """
+        super(Class0FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+    def forward(self, inputs, targets):
+        """
+        Args:
+            inputs (torch.Tensor): Model predictions (logits), shape (N, 2)
+            targets (torch.Tensor): Ground truth labels (0 or 1), shape (N,)
+        Returns:
+            torch.Tensor: The computed loss
+        """
+        # Convert targets to one-hot encoding
+        targets_onehot = F.one_hot(targets.long(), num_classes=2).float()  # (N, 2)
+        
+        # Compute probabilities using softmax (since it's 2D output)
+        probabilities = F.softmax(inputs, dim=1)  # (N, 2)
+        
+        # Get the predicted probability for the true class
+        p_t = torch.sum(probabilities * targets_onehot, dim=1)  # (N,)
+        
+        # Compute cross entropy loss (already includes log softmax)
+        ce_loss = F.cross_entropy(inputs, targets, reduction='none')  # (N,)
+        
+        # Compute modulating factor
+        modulating_factor = (1 - p_t) ** self.gamma
+        
+        # Compute alpha_t - we give more weight to class 0
+        alpha_t = self.alpha * (1 - targets) + (1 - self.alpha) * targets  # (N,)
+        
+        # Compute the focal loss
+        focal_loss = alpha_t * modulating_factor * ce_loss
+        
+        # Apply reduction
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss
+        
 class Loss(nn.Module):
     def __init__(self, baseconfig, supervision, dataset_config):
         super().__init__()
@@ -40,6 +94,26 @@ class Loss(nn.Module):
             loss = F.cross_entropy(pd_struct.feature.jdata, idx_mask)
         return 0.0 if idx_mask.size(0) == 0 else loss
     
+    def focal_cross_entropy(self, pd_struct: fvnn.VDBTensor, gt_grid: fvdb.GridBatch, dynamic_grid: fvdb.GridBatch = None, gamma=2.0, alpha=0.75):
+        assert torch.allclose(pd_struct.grid.origins, gt_grid.origins)
+        assert torch.allclose(pd_struct.grid.voxel_sizes, gt_grid.voxel_sizes)
+        idx_mask = gt_grid.ijk_to_index(pd_struct.grid.ijk).jdata == -1
+        idx_mask = idx_mask.long()
+        if dynamic_grid is not None:
+            dynamic_mask = dynamic_grid.ijk_to_index(pd_struct.grid.ijk).jdata == -1
+            loss = F.cross_entropy(pd_struct.feature.jdata, idx_mask, reduction='none') * dynamic_mask.float()
+            loss = loss.mean()
+        else:
+            targets_onehot = F.one_hot(idx_mask.long(), num_classes=2).float()  # (N, 2)
+            probabilities = F.softmax(pd_struct.feature.jdata, dim=1)  # (N, 2)
+            p_t = torch.sum(probabilities * targets_onehot, dim=1)  # (N,)
+            ce_loss = F.cross_entropy(pd_struct.feature.jdata, idx_mask, reduction='none')  # (N,)
+            modulating_factor = (1 - p_t) ** gamma
+            alpha_t = alpha * (1 - idx_mask) + (1 - alpha) * idx_mask  # (N,)
+            focal_loss = alpha_t * modulating_factor * ce_loss
+
+        return 0.0 if idx_mask.size(0) == 0 else focal_loss.mean() * 10
+
     def struct_acc(self, pd_struct: fvnn.VDBTensor, gt_grid: fvdb.GridBatch):
         assert torch.allclose(pd_struct.grid.origins, gt_grid.origins)
         assert torch.allclose(pd_struct.grid.voxel_sizes, gt_grid.voxel_sizes)
@@ -177,8 +251,12 @@ class Loss(nn.Module):
                     gt_grid_i = gt_tree[feat_depth]
                     # get dynamic grid
                     dyn_grid_i = dynamic_grid.coarsened_grid(2 ** feat_depth) if dynamic_grid is not None else None
-                    loss_dict.add_loss(f"struct-{feat_depth}", self.cross_entropy(pd_struct_i, gt_grid_i, dyn_grid_i),
-                                    self.supervision.structure_weight)
+                    if feat_depth > 0:
+                        loss_dict.add_loss(f"struct-{feat_depth}", self.cross_entropy(pd_struct_i, gt_grid_i, dyn_grid_i),
+                                        self.supervision.structure_weight)
+                    else:
+                        loss_dict.add_loss(f"struct-{feat_depth}", self.focal_cross_entropy(pd_struct_i, gt_grid_i, dyn_grid_i),
+                                        self.supervision.structure_weight)
                     if compute_metric:
                         with torch.no_grad():
                             metric_dict.add_loss(f"struct-acc-{feat_depth}", self.struct_acc(pd_struct_i, gt_grid_i))

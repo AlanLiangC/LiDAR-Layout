@@ -8,8 +8,8 @@ import torch.nn.functional as F
 from contextlib import contextmanager
 from ...modules.ema import LitEma
 from ...utils.misc_utils import instantiate_from_config
-# from ...modules.xcube.cube_base_encoder import Encoder
-from ...modules.xcube.cube_encoder_w_pt import Encoder
+from ...modules.xcube.cube_base_encoder import Encoder
+# from ...modules.xcube.cube_encoder_w_pt import Encoder
 
 from .utils import point2voxel, reparametrize
 
@@ -173,7 +173,7 @@ class CubeAEModel(pl.LightningModule):
         
         for depth in range(self.geoconfig.tree_depth):
             if depth != 0 and not self.geoconfig.use_hash_tree:
-                break            
+                break
             voxel_size = [sv * 2 ** depth for sv in self.geoconfig.voxel_size]
             origins = [sv / 2. for sv in voxel_size]
             
@@ -298,10 +298,16 @@ class CubeAEModel(pl.LightningModule):
         unet_feat = self.encoder(input_grid, batch)
         unet_feat = fvnn.VDBTensor(input_grid, input_grid.jagged_like(unet_feat))
         res, output_x, _ = self.unet(unet_feat, hash_tree)
-        log['gt_xyz'] = input_grid.grid_to_world(input_grid.ijk.float()).jdata.cpu().numpy()
-        log['pred_xyz'] = output_x.grid.grid_to_world(output_x.grid[0].ijk.float()).jdata.cpu().numpy()
-        latend_xyz = res.structure_grid[2]
-        log['latend_xyz'] = latend_xyz.grid_to_world(latend_xyz.ijk.float()).jdata.cpu().numpy()
+        # encode & decode
+        for i in range(self.geoconfig.tree_depth):
+            temp_grid = hash_tree[i]
+            log.update({
+                f'encode_{i}': temp_grid.grid_to_world(temp_grid.ijk.float()).jdata.cpu().numpy()
+            })
+            temp_grid = res.structure_grid[i]
+            log.update({
+                f'decode_{i}': temp_grid.grid_to_world(temp_grid.ijk.float()).jdata.cpu().numpy()
+            })
         return log
 
     def to_rgb(self, x):

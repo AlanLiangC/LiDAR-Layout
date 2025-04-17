@@ -28,12 +28,12 @@
                 // "--eval"
 
                 // train autoencoder
-                "-b", "../configs/Ours/nuscenes/refine_voxel/voxel_1024_pt.yaml",
+                "-b", "../configs/Ours/nuscenes/refine_voxel/voxel_1024.yaml",
                 "-t",
                 "--gpus", "1",
                 "--batch_size", "2",
                 "--num_workers", "1",
-                // "-r", "../models/first_stage_models/nusc/f_c2_p4/last.ckpt"
+                "-r", "./logs/refine_voxel/2025-04-16T23-54-44_voxel_1024/checkpoints/last.ckpt"
 
                 // eval vae
                 // "-d", "nuscenes",

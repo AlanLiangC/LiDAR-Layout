@@ -334,6 +334,10 @@ class CubeAEModel(pl.LightningModule):
         
         return fvnn.VDBTensor(x.grid, x.grid.jagged_like(sparse_feature))
     
+    def _decode(self, res, latents, is_testing=True):
+        res, output_x = self.unet.decode(res, latents, is_testing=is_testing)
+        return output_x
+
 class CubeModelInterface(CubeAEModel):
     def __init__(self, monitor=None, geoconfig=None, edconfig=None, unetconfig=None, 
                  lossconfig=None, ckpt_path=None, ignore_keys=[], scheduler_config=None, 

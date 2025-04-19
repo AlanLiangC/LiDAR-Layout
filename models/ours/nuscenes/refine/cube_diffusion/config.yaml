@@ -1,0 +1,101 @@
+model:
+  base_learning_rate: 1.0e-06
+  target: lidm.models.diffusion.ddpm_cube.CubeLatentDiffusion
+  params:
+    scale_by_std: true
+    linear_start: 0.0015
+    linear_end: 0.0195
+    num_timesteps_cond: 1
+    log_every_t: 200
+    timesteps: 1000
+    image_size: [4, 32]
+    channels: 8
+    monitor: val/loss_simple_ema
+    first_stage_key: image
+    cube_condition_config:
+      use_pos_embed_high: true
+    unet_config:
+      target: lidm.modules.unets.unet_sparse.UNetModel_Sparse
+      params:
+        dims: 3 # 3D conv
+        model_channels: 64 
+        use_middle_attention: True
+        channel_mult: [1, 2, 4, 4] # 128 -> 16
+        attention_resolutions: [8, 16] # 32 | 16
+        num_res_blocks: 2
+        num_heads: 8
+
+    first_stage_config:
+      target: lidm.models.ae.autoencoder_cube.CubeModelInterface
+      params:
+        
+        geoconfig:
+          voxel_size: &voxel_size 0.1
+          point_cloud_range: &point_cloud_range [-51.2, -51.2, -51.2, 51.2, 51.2, 51.2]
+          use_hash_tree: &use_hash_tree true
+          tree_depth: &tree_depth 3
+          use_fvdb_loader: &use_fvdb_loader true
+          enable_anneal: &enable_anneal false
+
+        edconfig:
+          c_dim: 32
+          use_input_intensity: false
+
+        unetconfig:
+          target: lidm.modules.xcube.sunet.StructPredictionNet
+          params:
+            cut_ratio: 16
+            with_normal_branch: &with_normal_branch false
+            with_semantic_branch: &with_semantic_branch false
+            in_channels: 32
+            num_blocks: *tree_depth
+            f_maps: 32
+            neck_dense_type: "UNCHANGED"
+            neck_bound: [128, 128, 32]        
+            num_res_blocks: 1
+            use_residual: false
+            order: "gcr"
+            is_add_dec: false
+            use_attention: false
+            use_checkpoint: false
+        lossconfig:
+          target: torch.nn.Identity
+        ckpt_path: /home/alan/AlanLiang/Projects/AlanLiang/LiDAR-Layout/models/ours/nuscenes/refine/voxel_ae/last.ckpt
+
+        
+    cond_stage_config: "__is_unconditional__"
+
+data:
+  target: train_lidm.DataModuleFromConfig
+  params:
+    use_collate_fn: true
+    batch_size: 4
+    num_workers: 8
+    wrap: true
+    dataset:
+      point_cloud_range: *point_cloud_range
+    aug:
+      flip: true
+      rotate: true
+    train:
+      target: lidm.data.nuscenes_cube_dataset.NUSC_CUBE_DATASET
+      params:
+        split: 'train'
+        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
+        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+
+    validation:
+      target: lidm.data.nuscenes_cube_dataset.NUSC_CUBE_DATASET
+      params:
+        split: 'val'
+        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
+        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+
+
+
+lightning:
+
+  trainer:
+    benchmark: true

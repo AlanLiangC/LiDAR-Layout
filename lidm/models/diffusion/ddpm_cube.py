@@ -1,11 +1,13 @@
 import gc
 import torch
 from pytorch_lightning.utilities.distributed import rank_zero_only
+import fvdb.nn as fvnn
 from fvdb.nn import VDBTensor
 from .ddpm import LatentDiffusion
 from ...modules.unets.embedder_util import get_embedder
 from ...utils.misc_utils import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config, print_fn, preprocess_angle2sincos
 from ...modules.basic import make_beta_schedule, extract_into_sparse_tensor, noise_like
+from ..ae.autoencoder import VQModelInterface
 
 class CubeLatentDiffusion(LatentDiffusion):
     def __init__(self, first_stage_config, cond_stage_config, cube_condition_config, num_timesteps_cond=None, 
@@ -69,6 +71,7 @@ class CubeLatentDiffusion(LatentDiffusion):
                   cond_key=None, return_original_cond=False, bs=None):
 
         # encoding
+        rel = self.first_stage_model.log_images(batch)
         encoder_posterior = self.encode_first_stage(batch)
         z = self.get_first_stage_encoding(encoder_posterior).detach()
         if self.model.conditioning_key is not None:
@@ -214,3 +217,21 @@ class CubeLatentDiffusion(LatentDiffusion):
             self.log('lr_abs', lr, prog_bar=True, logger=True, on_step=True, on_epoch=False)
 
         return loss
+    
+
+    @torch.no_grad()
+    def decode_first_stage(self, z, predict_cids=False, force_not_quantize=False):
+
+        # latent_data = 1. / self.scale_factor * z.feature.jdata
+        # z = fvnn.VDBTensor(z.grid, z.grid.jagged_like(latent_data))
+        res = self.first_stage_model.unet.FeaturesSet()
+
+        # if isinstance(self.first_stage_model, VQModelInterface):
+        #     return self.first_stage_model._decode(res, z, is_testing=True)
+        # else:
+        #     return self.first_stage_model.decode(z)
+
+        if isinstance(self.first_stage_model, VQModelInterface):
+            return self.first_stage_model.decode(z, force_not_quantize=predict_cids or force_not_quantize)
+        else:
+            return self.first_stage_model._decode(res, z, is_testing=False)

@@ -18,7 +18,7 @@ class NUSC_CUBE_DATASET(Dataset):
 
     def prepare_data(self):
         if self.split == 'train':
-            with open(os.path.join(self.data_root, 'v1.0-trainval/v1.0-trainval/sample_data.json')) as f:
+            with open(os.path.join(self.data_root, 'v1.0-trainval/v1.0-mini/sample_data.json')) as f:
                 sample_data = json.load(f)
 
             custom_path = 'v1.0-trainval'

@@ -60,7 +60,7 @@ model:
             use_checkpoint: false
         lossconfig:
           target: torch.nn.Identity
-        ckpt_path: /home/alan/AlanLiang/Projects/AlanLiang/LiDAR-Layout/models/ours/nuscenes/refine/voxel_ae/last.ckpt
+        ckpt_path: ../models/ours/nuscenes/refine/voxel_ae/last.ckpt
 
         
     cond_stage_config: "__is_unconditional__"

@@ -1,0 +1,76 @@
+model:
+  base_learning_rate: 1.0e-06
+  target: lidm.models.diffusion.ddpm_r2dm.R2DMDiffusion
+  params:
+    beta_schedule: cosine
+    linear_start: 0.0015
+    linear_end: 0.0195
+    num_timesteps_cond: 1
+    log_every_t: 200
+    timesteps: 1024
+    image_size: [32, 1024]
+    channels: 2
+    monitor: val/loss_simple_ema
+    unet_config:
+      target: lidm.modules.unets.efficient_unet.EfficientUNet
+      params:
+        in_channels: 2
+        resolution: [32, 1024]
+        base_channels: 64
+        temb_channels: null
+        channel_multiplier: [1, 2, 4, 8]
+        num_residual_blocks: [3, 3, 3, 3]
+        gn_num_groups: 8
+        gn_eps: 1e-6
+        attn_num_heads: 8
+        coords_encoding: fourier_features
+        ring: true
+    cond_stage_config: "__is_unconditional__"
+
+data:
+  target: train_lidm.DataModuleFromConfig
+  params:
+    use_collate_fn: true
+    batch_size: 4
+    num_workers: 8
+    wrap: true
+    dataset:
+      size: [32, 1024]
+      fov: [ 10,-30 ]
+      depth_range: [ 1.0,56.0 ]
+      depth_scale: 5.84  # np.log2(depth_max + 1)
+      log_scale: true
+      x_range: [ -50.0, 50.0 ]
+      y_range: [ -50.0, 50.0 ]
+      z_range: [ -3.0, 1.0 ]
+      resolution: 1
+      num_channels: 1
+      num_cats: 10
+      num_views: 2
+      num_sem_cats: 19
+      filtered_map_cats: [ ]
+    aug:
+      flip_w_box: false
+      rotate_w_box: false
+      flip: true
+      rotate: true
+      keypoint_drop: false
+      keypoint_drop_range: [ 5,20 ]
+      randaug: false
+    train:
+      target: lidm.data.nusc_dataset_final.NuScenesGen
+      params:
+        split: train
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+    validation:
+      target: lidm.data.nusc_dataset_final.NuScenesGen
+      params:
+        split: val
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+
+
+lightning:
+  trainer:
+    benchmark: true

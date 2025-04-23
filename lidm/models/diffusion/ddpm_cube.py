@@ -7,7 +7,7 @@ from .ddpm import LatentDiffusion
 from ...modules.unets.embedder_util import get_embedder
 from ...utils.misc_utils import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config, print_fn, preprocess_angle2sincos
 from ...modules.basic import make_beta_schedule, extract_into_sparse_tensor, noise_like
-from ..ae.autoencoder import VQModelInterface
+from ...models.diffusion.ddim import DDIMCubeSampler
 
 class CubeLatentDiffusion(LatentDiffusion):
     def __init__(self, first_stage_config, cond_stage_config, cube_condition_config, num_timesteps_cond=None, 
@@ -71,7 +71,6 @@ class CubeLatentDiffusion(LatentDiffusion):
                   cond_key=None, return_original_cond=False, bs=None):
 
         # encoding
-        rel = self.first_stage_model.log_images(batch)
         encoder_posterior = self.encode_first_stage(batch)
         z = self.get_first_stage_encoding(encoder_posterior).detach()
         if self.model.conditioning_key is not None:
@@ -113,7 +112,7 @@ class CubeLatentDiffusion(LatentDiffusion):
         out = [z, c]
         if return_first_stage_outputs:
             xrec = self.decode_first_stage(z)
-            out.extend([x, xrec])
+            out.extend([None, xrec])
         if return_original_cond:
             out.append(xc)
         return out
@@ -130,7 +129,7 @@ class CubeLatentDiffusion(LatentDiffusion):
         timesteps_sparse = timesteps_sparse[x_start.feature.jidx.long()] # N, 1
         x_noisy = self.q_sample(x_start=latent_data, t=timesteps_sparse, noise=noise)
         x_noisy = VDBTensor(grid=x_start.grid, feature=x_start.grid.jagged_like(x_noisy))
-        if self.cube_condition_config:
+        if self.cube_condition_config.get('use_pos_embed_high', False):
             pos_embed = self.get_pos_embed_high(x_noisy.grid.ijk.jdata)
             x_noisy = VDBTensor.cat([x_noisy, pos_embed], dim=1)
         model_output = self.apply_model(x_noisy, t, cond)
@@ -220,18 +219,48 @@ class CubeLatentDiffusion(LatentDiffusion):
     
 
     @torch.no_grad()
-    def decode_first_stage(self, z, predict_cids=False, force_not_quantize=False):
+    def decode_first_stage(self, z, predict_cids=False, force_not_quantize=False, return_res=False):
 
-        # latent_data = 1. / self.scale_factor * z.feature.jdata
-        # z = fvnn.VDBTensor(z.grid, z.grid.jagged_like(latent_data))
+        latent_data = 1. / self.scale_factor * z.feature.jdata
+        z = fvnn.VDBTensor(z.grid, z.grid.jagged_like(latent_data))
         res = self.first_stage_model.unet.FeaturesSet()
+        return self.first_stage_model._decode(res, z, is_testing=False, return_res=return_res)
+    
+    @torch.no_grad()
+    def sample_log(self, grids, cond, ddim, ddim_steps, **kwargs):
+        if ddim:
+            ddim_sampler = DDIMCubeSampler(self)
+            samples, intermediates = ddim_sampler.sample(ddim_steps, grids, cond, verbose=self.verbose, **kwargs)
 
-        # if isinstance(self.first_stage_model, VQModelInterface):
-        #     return self.first_stage_model._decode(res, z, is_testing=True)
-        # else:
-        #     return self.first_stage_model.decode(z)
+        return samples, intermediates
 
-        if isinstance(self.first_stage_model, VQModelInterface):
-            return self.first_stage_model.decode(z, force_not_quantize=predict_cids or force_not_quantize)
-        else:
-            return self.first_stage_model._decode(res, z, is_testing=False)
+    @torch.no_grad()
+    def log_images(self, batch, N=8, n_row=4, sample=True, ddim_steps=200, ddim_eta=1., return_keys=None,
+                   quantize_denoised=False, inpaint=False, plot_denoise_rows=False, plot_progressive_rows=False,
+                   plot_diffusion_rows=False, dset=None, **kwargs):
+
+        use_ddim = ddim_steps is not None
+
+        log = dict()
+        z, c, x, xrec, xc = self.get_input(batch, self.first_stage_key,
+                                           return_first_stage_outputs=True,
+                                           force_c_encode=True,
+                                           return_original_cond=True,
+                                           bs=N)
+        grids = z.grid
+
+        with self.ema_scope("Plotting"):
+            samples, z_denoise_row = self.sample_log(grids=grids, cond=c, ddim=use_ddim,
+                                                        ddim_steps=ddim_steps, eta=ddim_eta)
+        res = self.decode_first_stage(samples, return_res=True)
+        for i in range(self.first_stage_model.geoconfig.tree_depth):
+            temp_grid = res.structure_grid[i]
+            log.update({
+                f'decode_{i}': temp_grid.grid_to_world(temp_grid.ijk.float()).jdata.cpu().numpy()
+            })
+        temp_grid = batch['INPUT_PC']
+        log.update({
+            f'input_grid': temp_grid.grid_to_world(temp_grid.ijk.float()).jdata.cpu().numpy()
+        })
+        return log
+

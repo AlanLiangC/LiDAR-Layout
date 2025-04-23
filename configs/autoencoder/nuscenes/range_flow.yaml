@@ -21,11 +21,6 @@ model:
         geo_factor: 0
         mask_factor: 0  # 0.0
         perceptual_factor: 0
-        chamfer_factor: 0.01
-        smooth_factor: 0.001
-        norm_factor: 0.1
-        vfov: [ -30.0, 10.0 ]
-        hfov: [ -180.0, 180.0 ]
         perceptual_type: rangenet_dec
 
     ddconfig:
@@ -42,7 +37,7 @@ model:
 
 
 data:
-  target: train_vae_lidar.DataModuleFromConfig
+  target: train_lidm.DataModuleFromConfig
   params:
     batch_size: 4
     num_workers: 8
@@ -71,17 +66,17 @@ data:
       keypoint_drop_range: [ 5,20 ]
       randaug: false
     train:
-      target: lidm.dataset.nusc.nuScenesImageTrain
+      target: lidm.data.nusc_dataset.nuScenesImageTrain
       params:
         condition_key: image
-        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
-        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        data_root: /data1/liangao/Dataset/openpcd_nuscenes
     validation:
-      target: lidm.dataset.nusc.nuScenesImageValidation
+      target: lidm.data.nusc_dataset.nuScenesImageValidation
       params:
         condition_key: image
-        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
-        # data_root: /data1/liangao/Dataset/openpcd_nuscenes
+        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        data_root: /data1/liangao/Dataset/openpcd_nuscenes
 
 
 lightning:

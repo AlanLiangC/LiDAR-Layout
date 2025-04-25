@@ -77,16 +77,29 @@ def components_from_spherical_harmonics(levels: int, directions):
     return components
 
 
-def generate_polar_coords(H: int, W: int, device: torch.device = "cpu") -> torch.Tensor:
-    """
-    theta: azimuthal angle in [-pi, pi]
-    phi: polar angle in [0, pi]
-    """
-    phi = (0.5 - torch.arange(H, device=device) / H) * torch.pi
-    theta = (1 - torch.arange(W, device=device) / W) * 2 * torch.pi - torch.pi
-    [phi, theta] = torch.meshgrid([phi, theta], indexing="ij")
-    angles = torch.stack([phi, theta])
-    return angles[None]
+# def generate_polar_coords(H: int, W: int, device: torch.device = "cpu") -> torch.Tensor:
+#     """
+#     theta: azimuthal angle in [-pi, pi]
+#     phi: polar angle in [0, pi]
+#     """
+#     phi = (0.5 - torch.arange(H, device=device) / H) * torch.pi
+#     theta = (1 - torch.arange(W, device=device) / W) * 2 * torch.pi - torch.pi
+#     [phi, theta] = torch.meshgrid([phi, theta], indexing="ij")
+#     angles = torch.stack([phi, theta])
+#     return angles[None]
+
+def generate_polar_coords(
+    H: int = 32, W: int = 1024, device: torch.device = "cpu"
+):
+    h_up, h_down = 10, -30
+    w_left, w_right = 180, -180
+    elevation = 1 - torch.arange(H, device=device) / H  # [0, 1]
+    elevation = elevation * (h_up - h_down) + h_down  # [-25, 3]
+    azimuth = 1 - torch.arange(W, device=device) / W  # [0, 1]
+    azimuth = azimuth * (w_left - w_right) + w_right  # [-180, 180]
+    [elevation, azimuth] = torch.meshgrid([elevation, azimuth], indexing="ij")
+    angles = torch.stack([elevation, azimuth])[None].deg2rad()
+    return angles
 
 
 class SphericalHarmonics(nn.Module):

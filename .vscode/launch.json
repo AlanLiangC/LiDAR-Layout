@@ -46,7 +46,8 @@
                 "-t",
                 "--gpus", "1",
                 "--batch_size", "2",
-                "--num_workers", "1"
+                "--num_workers", "1",
+                // "-r", "./logs/r2dm/2025-04-25T15-52-51_r2dm_diffusion/checkpoints/last.ckpt"
 
                 // sample lidar cond
                 // "-d", "nuscenes",

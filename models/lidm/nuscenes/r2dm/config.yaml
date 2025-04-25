@@ -2,6 +2,7 @@ model:
   base_learning_rate: 1.0e-06
   target: lidm.models.diffusion.ddpm_r2dm.R2DMDiffusion
   params:
+    # beta_schedule: cosine
     linear_start: 0.0015
     linear_end: 0.0195
     num_timesteps_cond: 1

@@ -4,18 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-
-
-def generate_polar_coords(H: int, W: int, device: torch.device = "cpu") -> torch.Tensor:
-    """
-    theta: azimuthal angle in [-pi, pi]
-    phi: polar angle in [0, pi]
-    """
-    phi = (0.5 - torch.arange(H, device=device) / H) * torch.pi
-    theta = (1 - torch.arange(W, device=device) / W) * 2 * torch.pi - torch.pi
-    [phi, theta] = torch.meshgrid([phi, theta], indexing="ij")
-    angles = torch.stack([phi, theta])
-    return angles[None]
+from ..modules.unets.encoding import generate_polar_coords
 
 class LiDARUtility(nn.Module):
     def __init__(

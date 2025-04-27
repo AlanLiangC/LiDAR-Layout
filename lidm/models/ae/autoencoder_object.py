@@ -4,10 +4,7 @@ import pytorch_lightning as pl
 import torch.nn.functional as F
 from contextlib import contextmanager
 
-from taming.modules.vqvae.quantize import VectorQuantizer1D as VectorQuantizer
-
-from ...modules.diffusion import model_lidm, model_ldm
-from ...modules.distributions.distributions import DiagonalGaussianDistribution
+from lidm.models.ae.vq import VectorQuantizer1D as VectorQuantizer
 from ...modules.ema import LitEma
 from ...utils.misc_utils import instantiate_from_config
 

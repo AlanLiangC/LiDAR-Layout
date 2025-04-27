@@ -94,7 +94,7 @@ class VQModel_Object(pl.LightningModule):
         h = self.object_encoder.encode(x)
         h = self.quant_conv(h)
         quant, emb_loss, info = self.quantize(h)
-        return quant, emb_loss, info
+        return h, emb_loss, info
 
     def encode_to_prequant(self, x):
         h = self.encoder(x)
@@ -213,3 +213,19 @@ class VQModel_Object(pl.LightningModule):
 
     def get_last_layer(self):
         return None
+    
+    @torch.inference_mode()
+    def log_images(self, x, only_inputs=False, plot_ema=False, **kwargs):
+        log = dict()
+        x = x.to(self.device)
+        if only_inputs:
+            log["inputs"] = x
+            return log
+        xrec, _ = self(x)
+        log["inputs"] = x
+        log["reconstructions"] = xrec
+        if plot_ema:
+            with self.ema_scope():
+                xrec_ema, _ = self(x)
+                log["reconstructions_ema"] = xrec_ema
+        return log

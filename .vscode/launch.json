@@ -28,11 +28,11 @@
                 // "--eval"
 
                 // train autoencoder
-                // "-b", "../configs/Ours/nuscenes/refine_voxel/voxel_1024.yaml",
-                // "-t",
-                // "--gpus", "1",
-                // "--batch_size", "2",
-                // "--num_workers", "1",
+                "-b", "../configs/autoencoder/nusceues_objects/g2sd_32.yaml",
+                "-t",
+                "--gpus", "1",
+                "--batch_size", "16",
+                "--num_workers", "1",
                 // "-r", "./logs/refine_voxel/2025-04-16T23-54-44_voxel_1024/checkpoints/last.ckpt"
 
                 // eval vae
@@ -42,12 +42,12 @@
                 // "--num_workers", "1"
 
                 // train lidar diffusion
-                "-b", "../configs/r2dm/r2dm_diffusion.yaml",
-                "-t",
-                "--gpus", "1",
-                "--batch_size", "2",
-                "--num_workers", "1",
-                // "-r", "./logs/r2dm/2025-04-25T15-52-51_r2dm_diffusion/checkpoints/last.ckpt"
+                // "-b", "../configs/r2dm/r2dm_diffusion.yaml",
+                // "-t",
+                // "--gpus", "1",
+                // "--batch_size", "2",
+                // "--num_workers", "1",
+                // "-r", "./logs/r2dm/2025-04-26T15-12-28_r2dm_diffusion/checkpoints/last.ckpt"
 
                 // sample lidar cond
                 // "-d", "nuscenes",

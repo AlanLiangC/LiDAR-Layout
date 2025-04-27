@@ -6,6 +6,7 @@ from .geometric import GeoConverter
 from .discriminator import NLayerDiscriminator, LiDARNLayerDiscriminator, LiDARNLayerDiscriminatorV2
 from .perceptual import PerceptualLoss
 from .chamfer.chamfer3D.dist_chamfer_3D import chamfer_3DDist
+from .utils import chamfer_distance_cuda
 
 VERSION2DISC = {'v0': NLayerDiscriminator, 'v1': LiDARNLayerDiscriminator, 'v2': LiDARNLayerDiscriminatorV2}
 
@@ -270,3 +271,33 @@ class VQGeoLPIPSWithDiscriminator(nn.Module):
         log = {"{}/loss_lidar".format(split): rec_loss.clone().detach().mean()}
 
         return rec_loss, log
+    
+class VQGeoLPIPSWithDiscriminator1D(nn.Module):
+    def __init__(self, dataset_config=dict(), disc_conditional=False):
+        super().__init__()
+
+    def forward(self, codebook_loss, inputs, reconstructions, optimizer_idx,
+                global_step, last_layer=None, cond=None, split="train", predicted_indices=None, masks=None):
+
+        rec_loss = chamfer_distance_cuda(inputs, reconstructions)
+        loss =  rec_loss + codebook_loss.mean()
+
+        log = {"{}/total_loss".format(split): loss.clone().detach().mean(),
+                "{}/quant_loss".format(split): codebook_loss.detach().mean(),
+                "{}/rec_loss".format(split): rec_loss.detach().mean(),
+                # "{}/pix_rec_loss".format(split): pixel_rec_loss.detach().mean(),
+                # "{}/geo_rec_loss".format(split): geo_rec_loss.detach().mean(),
+                # "{}/mask_rec_loss".format(split): mask_rec_loss.detach().mean(),
+                # "{}/perceptual_loss".format(split): perceptual_loss.detach().mean(),
+                # "{}/d_weight".format(split): d_weight.detach(),
+                # "{}/disc_factor".format(split): torch.tensor(disc_factor),
+                # "{}/g_loss".format(split): g_loss.detach().mean()
+                }
+
+        if predicted_indices is not None:
+            assert self.n_classes is not None
+            with torch.no_grad():
+                perplexity, cluster_usage = measure_perplexity(predicted_indices, self.n_classes)
+            log[f"{split}/perplexity"] = perplexity
+            log[f"{split}/cluster_usage"] = cluster_usage
+        return loss, log

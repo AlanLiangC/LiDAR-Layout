@@ -349,7 +349,7 @@ class R2DMDiffusion(DDPM):
                 self.image_size,
                 depth_format=depth_format,
                 min_depth=self.depth_range[0],
-                max_depth=self.depth_range[1],
+                max_depth=self.depth_range[1], ray_angles=self.model.diffusion_model.coords
             )
             self.lidar_utils.to(image.device)
         image = self.lidar_utils.denormalize(image)

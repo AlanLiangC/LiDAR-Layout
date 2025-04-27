@@ -2,6 +2,7 @@ import sys
 from collections import OrderedDict
 import pickle
 import torch
+from ...ops.chamferdist import knn_gpu
 
 # from xcube.utils.exp import ConsoleColor
 
@@ -130,3 +131,29 @@ class AverageMeter:
         print(self.get_printable_mean(), flush=True)
         if color is not None:
             color_device.write(ConsoleColor.RESET)
+
+def chamfer_distance_cuda(pts_s, pts_t, cpt_mode='max', return_detail=False):
+    # pts_s: [B, Ns, C], source point cloud
+    # pts_t: [B, Nt, C], target point cloud
+    Bs, Ns, Cs, device_s = pts_s.size(0), pts_s.size(1), pts_s.size(2), pts_s.device
+    Bt, Nt, Ct, device_t = pts_t.size(0), pts_t.size(1), pts_t.size(2), pts_t.device
+    assert Bs == Bt
+    assert Cs == Ct
+    assert device_s == device_t
+    assert device_s.type == 'cuda' and device_t.type == 'cuda'
+    assert cpt_mode in ['max', 'avg']
+    lengths_s = torch.ones(Bs, dtype=torch.long, device=device_s) * Ns
+    lengths_t = torch.ones(Bt, dtype=torch.long, device=device_t) * Nt
+    source_nn = knn_gpu(pts_s, pts_t, lengths_s, lengths_t, 1)
+    target_nn = knn_gpu(pts_t, pts_s, lengths_t, lengths_s, 1)
+    source_dist, source_idx = source_nn.dists.squeeze(-1), source_nn.idx.squeeze(-1) # [B, Ns]
+    target_dist, target_idx = target_nn.dists.squeeze(-1), target_nn.idx.squeeze(-1) # [B, Nt]
+    batch_dist = torch.cat((source_dist.mean(dim=-1, keepdim=True), target_dist.mean(dim=-1, keepdim=True)), dim=-1) # [B, 2]
+    if cpt_mode == 'max':
+        cd = batch_dist.max(dim=-1)[0].mean()
+    if cpt_mode == 'avg':
+        cd = batch_dist.mean(dim=-1).mean()
+    if not return_detail:
+        return cd
+    else:
+        return cd, source_dist, source_idx, target_dist, target_idx

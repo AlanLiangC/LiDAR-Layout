@@ -63,16 +63,16 @@ data:
       target: lidm.data.nusc_dataset_final.NuScenesGen
       params:
         split: train
-        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
         # data_root: /data1/liangao/Dataset/openpcd_nuscenes
-        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
     validation:
       target: lidm.data.nusc_dataset_final.NuScenesGen
       params:
         split: val
-        # data_root: /home/alan/AlanLiang/Dataset/Nuscenes
+        data_root: /home/alan/AlanLiang/Dataset/Nuscenes
         # data_root: /data1/liangao/Dataset/openpcd_nuscenes
-        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
+        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes
 
 
 lightning:

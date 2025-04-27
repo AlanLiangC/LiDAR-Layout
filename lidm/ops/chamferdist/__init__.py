@@ -1,0 +1,1 @@
+from .chamferdist.chamfer import knn_points as knn_gpu

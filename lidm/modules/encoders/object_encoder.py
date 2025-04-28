@@ -212,8 +212,9 @@ class G2SD(nn.Module):
         fold_2_1 = SMLP(1027, 256, True, 'relu')
         fold_2_2 = SMLP(256, 128, True, 'relu')
         fold_2_3 = SMLP(128, 64, True, 'relu')
-        fold_2_4 = SMLP(64, 3, False, 'none')
-        self.fold_2 = nn.Sequential(fold_2_1, fold_2_2, fold_2_3, fold_2_4)
+        # fold_2_4 = 
+        self.conv_out = SMLP(64, 3, False, 'none')
+        self.fold_2 = nn.Sequential(fold_2_1, fold_2_2, fold_2_3, self.conv_out)
 
     def encode(self, pts):
             cdw = self.backbone(pts)

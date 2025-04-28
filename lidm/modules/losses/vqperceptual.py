@@ -3,7 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from . import weights_init, l1, l2, hinge_d_loss, vanilla_d_loss, measure_perplexity, square_dist_loss
 from .geometric import GeoConverter
-from .discriminator import NLayerDiscriminator, LiDARNLayerDiscriminator, LiDARNLayerDiscriminatorV2
+from .discriminator import NLayerDiscriminator, LiDARNLayerDiscriminator, LiDARNLayerDiscriminatorV2, PointNet
 from .perceptual import PerceptualLoss
 from .chamfer.chamfer3D.dist_chamfer_3D import chamfer_3DDist
 from .utils import chamfer_distance_cuda
@@ -273,31 +273,72 @@ class VQGeoLPIPSWithDiscriminator(nn.Module):
         return rec_loss, log
     
 class VQGeoLPIPSWithDiscriminator1D(nn.Module):
-    def __init__(self, dataset_config=dict(), disc_conditional=False):
+    def __init__(self, discriminator_config, dataset_config=dict(), disc_conditional=False):
         super().__init__()
+        self.discriminator_weight = 1.0
+        self.discriminator = PointNet(
+            pts_dim=discriminator_config.pts_dim,
+            x=discriminator_config.latent_times,
+            cls_num=discriminator_config.cls_num
+        )
+        self.classifical_loss = nn.CrossEntropyLoss()
 
-    def forward(self, codebook_loss, inputs, reconstructions, optimizer_idx,
+    def calculate_adaptive_weight(self, nll_loss, g_loss, last_layer=None):
+        if last_layer is not None:
+            nll_grads = torch.autograd.grad(nll_loss, last_layer, retain_graph=True)[0]
+            g_grads = torch.autograd.grad(g_loss, last_layer, retain_graph=True)[0]
+        else:
+            nll_grads = torch.autograd.grad(nll_loss, self.last_layer[0], retain_graph=True)[0]
+            g_grads = torch.autograd.grad(g_loss, self.last_layer[0], retain_graph=True)[0]
+
+        d_weight = torch.norm(nll_grads) / (torch.norm(g_grads) + 1e-4)
+        d_weight = torch.clamp(d_weight, 0.0, 1e4).detach()
+        d_weight = d_weight * self.discriminator_weight
+        return d_weight
+
+    def forward(self, inputs, fg_class, reconstructions, optimizer_idx,
                 global_step, last_layer=None, cond=None, split="train", predicted_indices=None, masks=None):
 
-        rec_loss = chamfer_distance_cuda(inputs, reconstructions)
-        loss =  rec_loss + codebook_loss.mean()
+        if optimizer_idx == 0:
+            disc_recons = reconstructions.permute(0,2,1).contiguous()
+            rec_loss = chamfer_distance_cuda(inputs, reconstructions)
+            logits_fake, global_logits_fake = self.discriminator(disc_recons)
+            # adversarial loss
+            g_loss = -torch.mean(global_logits_fake)
+            perception_loss = self.classifical_loss(logits_fake, fg_class.squeeze().long())
 
-        log = {"{}/total_loss".format(split): loss.clone().detach().mean(),
-                "{}/quant_loss".format(split): codebook_loss.detach().mean(),
-                "{}/rec_loss".format(split): rec_loss.detach().mean(),
-                # "{}/pix_rec_loss".format(split): pixel_rec_loss.detach().mean(),
-                # "{}/geo_rec_loss".format(split): geo_rec_loss.detach().mean(),
-                # "{}/mask_rec_loss".format(split): mask_rec_loss.detach().mean(),
-                # "{}/perceptual_loss".format(split): perceptual_loss.detach().mean(),
-                # "{}/d_weight".format(split): d_weight.detach(),
-                # "{}/disc_factor".format(split): torch.tensor(disc_factor),
-                # "{}/g_loss".format(split): g_loss.detach().mean()
-                }
+            try:
+                d_weight = self.calculate_adaptive_weight(rec_loss, g_loss, last_layer=last_layer)
+            except RuntimeError:
+                assert not self.training
+                d_weight = torch.tensor(0.0)
 
-        if predicted_indices is not None:
-            assert self.n_classes is not None
-            with torch.no_grad():
-                perplexity, cluster_usage = measure_perplexity(predicted_indices, self.n_classes)
-            log[f"{split}/perplexity"] = perplexity
-            log[f"{split}/cluster_usage"] = cluster_usage
-        return loss, log
+            loss = rec_loss + d_weight * g_loss + perception_loss*0.1
+
+            log = {"{}/total_loss".format(split): loss.clone().detach().mean(),
+                    "{}/rec_loss".format(split): rec_loss.detach().mean(),
+                    "{}/disc_loss".format(split): g_loss.detach().mean(),
+                    }
+
+            if predicted_indices is not None:
+                assert self.n_classes is not None
+                with torch.no_grad():
+                    perplexity, cluster_usage = measure_perplexity(predicted_indices, self.n_classes)
+                log[f"{split}/perplexity"] = perplexity
+                log[f"{split}/cluster_usage"] = cluster_usage
+            return loss, log
+
+        if optimizer_idx == 1:
+            disc_inputs, disc_recons = inputs.contiguous().permute(0,2,1).detach(), reconstructions.permute(0,2,1).contiguous().detach()
+            logits_real, global_logits_real = self.discriminator(disc_inputs)
+            _, global_logits_fake = self.discriminator(disc_recons)
+            perception_loss = self.classifical_loss(logits_real, fg_class.squeeze().long())
+
+            # gan loss
+            d_loss = hinge_d_loss(global_logits_real, global_logits_fake) + perception_loss
+
+            log = {"{}/disc_loss".format(split): d_loss.clone().detach().mean(),
+                   "{}/logits_real".format(split): global_logits_real.detach().mean(),
+                   "{}/logits_fake".format(split): global_logits_fake.detach().mean()}
+
+            return d_loss, log

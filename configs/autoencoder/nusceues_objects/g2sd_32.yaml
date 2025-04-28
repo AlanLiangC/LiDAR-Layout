@@ -10,6 +10,10 @@ model:
     lossconfig:
       target: lidm.modules.losses.vqperceptual.VQGeoLPIPSWithDiscriminator1D
       params:
+        discriminator_config:
+          pts_dim: 3
+          latent_times: 1
+          cls_num: 8
         disc_conditional: false
 
     modelconfig:
@@ -21,6 +25,7 @@ model:
 data:
   target: train_lidm.DataModuleFromConfig
   params:
+    use_collate_fn: true
     batch_size: 4
     num_workers: 8
     wrap: true

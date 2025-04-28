@@ -21,6 +21,7 @@ model:
 data:
   target: train_lidm.DataModuleFromConfig
   params:
+    use_collate_fn: true
     batch_size: 4
     num_workers: 8
     wrap: true
@@ -31,8 +32,8 @@ data:
     train:
       target: lidm.data.nuscenes_object_detaset.NuscenesObject
       params:
-        data_root: /home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval
-        pkl_path: /home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval/nuscenes_dbinfos_10sweeps_withvelo.pkl
+        # data_root: /home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval
+        # pkl_path: /home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval/nuscenes_dbinfos_10sweeps_withvelo.pkl
         # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval
         # pkl_path: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/nuscenes_dbinfos_10sweeps_withvelo.pkl
 
@@ -41,10 +42,10 @@ data:
     validation:
       target: lidm.data.nuscenes_object_detaset.NuscenesObject
       params:
-        data_root: /home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval
-        pkl_path: /home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval/nuscenes_dbinfos_10sweeps_withvelo.pkl
-        # data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval
-        # pkl_path: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/nuscenes_dbinfos_10sweeps_withvelo.pkl
+        # data_root: /home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval
+        # pkl_path: /home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval/nuscenes_dbinfos_10sweeps_withvelo.pkl
+        data_root: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval
+        pkl_path: /mnt/scratch/e/e1493786/AlanLiang/Dataset/Nuscenes/v1.0-trainval/nuscenes_dbinfos_10sweeps_withvelo.pkl
         split: val
 
 lightning:

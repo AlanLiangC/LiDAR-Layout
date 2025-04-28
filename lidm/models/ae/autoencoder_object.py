@@ -3,11 +3,8 @@ import torch
 import pytorch_lightning as pl
 import torch.nn.functional as F
 from contextlib import contextmanager
-
-from lidm.models.ae.vq import VectorQuantizer1D as VectorQuantizer
 from ...modules.ema import LitEma
 from ...utils.misc_utils import instantiate_from_config
-
 
 class VQModel_Object(pl.LightningModule):
     def __init__(self,
@@ -33,11 +30,6 @@ class VQModel_Object(pl.LightningModule):
         self.object_encoder = instantiate_from_config(modelconfig)
         if lossconfig is not None:
             self.loss = instantiate_from_config(lossconfig)
-        self.quantize = VectorQuantizer(n_embed, embed_dim, beta=0.25,
-                                        remap=remap,
-                                        sane_index_shape=sane_index_shape)
-        self.quant_conv = torch.nn.Linear(modelconfig.params["z_channels"], embed_dim)
-        self.post_quant_conv = torch.nn.Linear(embed_dim, modelconfig.params["z_channels"])
         if colorize_nlabels is not None:
             assert type(colorize_nlabels) == int
             self.register_buffer("colorize", torch.randn(3, colorize_nlabels, 1, 1))
@@ -92,36 +84,19 @@ class VQModel_Object(pl.LightningModule):
 
     def encode(self, x):
         h = self.object_encoder.encode(x)
-        h = self.quant_conv(h)
-        quant, emb_loss, info = self.quantize(h)
-        return h, emb_loss, info
-
-    def encode_to_prequant(self, x):
-        h = self.encoder(x)
-        h = self.quant_conv(h)
         return h
-
+    
     def decode(self, quant):
-        quant = self.post_quant_conv(quant)
         dec = self.object_encoder.decode(quant)
         return dec
 
-    def decode_code(self, code_b):
-        quant_b = self.quantize.embed_code(code_b)
-        dec = self.decode(quant_b)
+    def forward(self, input):
+        latent = self.encode(input)
+        dec = self.decode(latent)
         return dec
-
-    def forward(self, input, return_pred_indices=False):
-        quant, diff, (_, _, ind) = self.encode(input)
-        dec = self.decode(quant)
-        if return_pred_indices:
-            return dec, diff, ind
-        return dec, diff
 
     def get_input(self, batch, k):
         x = batch[k]
-        # if len(x.shape) == 3:
-        #     x = x[..., None]
 
         if self.batch_resize_range is not None:
             lower_size = self.batch_resize_range[0]
@@ -142,17 +117,26 @@ class VQModel_Object(pl.LightningModule):
         #     mask = mask[..., None]
         return mask
 
-    def training_step(self, x, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx, optimizer_idx):
         # https://github.com/pytorch/pytorch/issues/37142
         # try not to fool the heuristics
-        x_rec, qloss, ind = self(x, return_pred_indices=True)
+        x = batch['fg_points']
+        x_rec= self(x)
 
-        aeloss, log_dict_ae = self.loss(qloss, x, x_rec, optimizer_idx, self.global_step,
-                                        last_layer=self.get_last_layer(), split="train",
-                                        predicted_indices=None)
-        self.log_dict(log_dict_ae, prog_bar=False, logger=True, on_step=True, on_epoch=True)
-        return aeloss
+        if optimizer_idx == 0:
+            # autoencoder
+            aeloss, log_dict_ae = self.loss(x, batch['fg_class'], x_rec, optimizer_idx, self.global_step,
+                                            last_layer=self.get_last_layer(), split="train",
+                                            predicted_indices=None)
+            self.log_dict(log_dict_ae, prog_bar=False, logger=True, on_step=True, on_epoch=True)
+            return aeloss
 
+        if optimizer_idx == 1:
+            # discriminator
+            discloss, log_dict_disc = self.loss(x, batch['fg_class'], x_rec, optimizer_idx, self.global_step,
+                                                last_layer=self.get_last_layer(), split="train")
+            self.log_dict(log_dict_disc, prog_bar=False, logger=True, on_step=True, on_epoch=True)
+            return discloss
 
     def validation_step(self, batch, batch_idx):
         log_dict = self._validation_step(batch, batch_idx)
@@ -161,9 +145,10 @@ class VQModel_Object(pl.LightningModule):
                 log_dict_ema = self._validation_step(batch, batch_idx, suffix="_ema")
         return log_dict
 
-    def _validation_step(self, x, batch_idx, suffix=""):
-        xrec, qloss, ind = self(x, return_pred_indices=True)
-        aeloss, log_dict_ae = self.loss(qloss, x, xrec, 0,
+    def _validation_step(self, batch, batch_idx, suffix=""):
+        x = batch['fg_points']
+        xrec = self(x)
+        aeloss, log_dict_ae = self.loss(x,  batch['fg_class'], xrec, 0,
                                         self.global_step,
                                         last_layer=self.get_last_layer(),
                                         split="val" + suffix,
@@ -182,15 +167,9 @@ class VQModel_Object(pl.LightningModule):
     def configure_optimizers(self):
         lr_d = self.learning_rate
         lr_g = self.lr_g_factor * self.learning_rate
-        opt_ae = torch.optim.Adam(list(self.object_encoder.parameters()) +
-                                  list(self.quantize.parameters()) +
-                                  list(self.quant_conv.parameters()) +
-                                  list(self.post_quant_conv.parameters()),
+        opt_ae = torch.optim.Adam(list(self.object_encoder.parameters()),
                                   lr=lr_g, betas=(0.5, 0.9))
-        opt_disc = torch.optim.Adam(list(self.object_encoder.parameters())+
-                                  list(self.quantize.parameters()) +
-                                  list(self.quant_conv.parameters()) +
-                                  list(self.post_quant_conv.parameters()),
+        opt_disc = torch.optim.Adam(list(self.loss.discriminator.parameters()),
                                   lr=lr_d, betas=(0.5, 0.9))
         if self.scheduler_config is not None:
             scheduler = instantiate_from_config(self.scheduler_config)
@@ -212,7 +191,7 @@ class VQModel_Object(pl.LightningModule):
         return [opt_ae, opt_disc], []
 
     def get_last_layer(self):
-        return None
+        return self.object_encoder.conv_out.conv.weight    
     
     @torch.inference_mode()
     def log_images(self, x, only_inputs=False, plot_ema=False, **kwargs):

@@ -2,6 +2,7 @@ import os
 import pickle
 import random
 import numpy as np
+from collections import defaultdict
 import torch
 from torch.utils.data import Dataset
 
@@ -50,10 +51,16 @@ class NuscenesObject(Dataset):
         fg_objects_file = open(self.pkl_path, 'rb')
         fg_objects_dict = pickle.load(fg_objects_file)
         self.data = []
-        for class_name in CLASS_NAME:
-            self.data.extend(fg_objects_dict[class_name])
-        random.shuffle(self.data)
-    
+        self.class_samples = []
+        for class_idx, class_name in enumerate(CLASS_NAME):
+            fg_objects_list = fg_objects_dict[class_name]
+            self.data.extend(fg_objects_list)
+            self.class_samples.extend([class_idx]*len(fg_objects_list))
+
+        combined = list(zip(self.data, self.class_samples))
+        random.shuffle(combined)
+        self.data, self.class_samples = zip(*combined)
+        
         if self.split == 'val':
             self.data = self.data[:10000]
 
@@ -99,6 +106,7 @@ class NuscenesObject(Dataset):
         return points[choice]
 
     def __getitem__(self, index):
+        data_dict = {}
         fg_info = self.data[index]
         if fg_info['num_points_in_gt'] < 50:
             random_index = random.randint(0, self.__len__()-1)
@@ -109,8 +117,28 @@ class NuscenesObject(Dataset):
         box3d = fg_info['box3d_lidar'][:7]
         fg_points = self.norm_fg_points(fg_points, box3d)
         fg_points = self.sample_points(fg_points)
-        return torch.from_numpy(fg_points)
+        data_dict.update({
+            'fg_points': fg_points,
+            'fg_class': np.array([self.class_samples[index]])
+        })
+        return data_dict
     
+    def collate_fn(self, batch_list, _unused=False):
+        data_dict = defaultdict(list)
+        for cur_sample in batch_list:
+            for key, val in cur_sample.items():
+                data_dict[key].append(val)
+        batch_size = len(batch_list)
+        ret = {}
+        batch_size_ratio = 1
+
+        for key, val in data_dict.items():
+
+            ret[key] = torch.from_numpy(np.stack(val, axis=0)).float()
+
+        ret['batch_size'] = batch_size * batch_size_ratio
+        return ret
+
 if __name__ == "__main__":
     from tqdm import tqdm
     dataset = NuscenesObject(data_root='/home/alan/AlanLiang/Dataset/pcdet_Nuscenes/v1.0-trainval',
